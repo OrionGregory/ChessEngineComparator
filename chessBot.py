@@ -65,7 +65,6 @@ class SimpleChessBot:
         print(self.board)
         print("\nGame Over! Result: ", self.board.result())
 
-# Run the bot
 if __name__ == "__main__":
     bot = SimpleChessBot()
     bot.play_game()
