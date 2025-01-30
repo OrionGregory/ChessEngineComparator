@@ -39,6 +39,8 @@ class SimpleChessBot:
         return best_move
 
     def play_game(self):
+        move_number = 1  # Keep track of the move number
+
         while not self.board.is_game_over():
             print(self.board)
             print("\n")
@@ -50,6 +52,9 @@ class SimpleChessBot:
                     move = chess.Move.from_uci(user_move)
                     if move in self.board.legal_moves:
                         self.board.push(move)
+                        # Log FEN after White's move
+                        print(f"Move {move_number} (White): {move}, FEN = {self.board.fen()}")
+                        move_number += 1
                     else:
                         print("Illegal move. Try again.")
                         continue
@@ -61,9 +66,13 @@ class SimpleChessBot:
                 move = self.select_move()
                 print(f"Bot plays: {move}")
                 self.board.push(move)
+                # Log FEN after Black's move
+                print(f"Move {move_number} (Black): {move}, FEN = {self.board.fen()}")
+                move_number += 1
 
         print(self.board)
         print("\nGame Over! Result: ", self.board.result())
+
 
 if __name__ == "__main__":
     bot = SimpleChessBot()
