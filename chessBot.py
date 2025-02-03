@@ -1,43 +1,40 @@
 import chess
-import chess.engine
-import random
+from stockfish import Stockfish
+import os 
 
-# A simple chess bot
+# A simple chess bot using Stockfish
 class SimpleChessBot:
-    def __init__(self):
+    def __init__(self, stockfish_path):
         self.board = chess.Board()
-
+        print(f"Initializing Stockfish with path: {stockfish_path}")  # Debugging statement
+        self.stockfish = Stockfish(path=stockfish_path, parameters={"Threads": 2, "Minimum Thinking Time": 30})
+    
     def evaluate_board(self):
-        material_scores = {
-            chess.PAWN: 1,
-            chess.KNIGHT: 3,
-            chess.BISHOP: 3,
-            chess.ROOK: 5,
-            chess.QUEEN: 9,
-        }
-        score = 0
-
-        for piece_type in material_scores:
-            score += len(self.board.pieces(piece_type, chess.WHITE)) * material_scores[piece_type]
-            score -= len(self.board.pieces(piece_type, chess.BLACK)) * material_scores[piece_type]
-
+        # Set the current board position in Stockfish
+        self.stockfish.set_fen_position(self.board.fen())
+        
+        # Get the evaluation from Stockfish
+        evaluation = self.stockfish.get_evaluation()
+        
+        if evaluation['type'] == 'cp':
+            # Centipawn evaluation (positive for White, negative for Black)
+            score = evaluation['value'] / 100.0
+        elif evaluation['type'] == 'mate':
+            # Mate in n moves (positive for White, negative for Black)
+            # Assign a high score for mate positions
+            score = 1000 if evaluation['value'] > 0 else -1000
+        else:
+            score = 0  # Unknown evaluation
+        
         return score
-
+    
     def select_move(self):
-        best_move = None
-        best_score = -float('inf')
-
-        for move in self.board.legal_moves:
-            self.board.push(move)
-            score = self.evaluate_board()
-            self.board.pop()
-
-            if score > best_score:
-                best_score = score
-                best_move = move
-
-        return best_move
-
+        # Use Stockfish to select the best move
+        self.stockfish.set_fen_position(self.board.fen())
+        best_move = self.stockfish.get_best_move()
+        print(f"Best move from Stockfish: {best_move}")  # Debugging statement
+        return chess.Move.from_uci(best_move)
+    
     def play_game(self):
         move_number = 1  # Keep track of the move number
 
@@ -65,15 +62,21 @@ class SimpleChessBot:
                 print("Black's Turn (Bot)")
                 move = self.select_move()
                 print(f"Bot plays: {move}")
-                self.board.push(move)
-                # Log FEN after Black's move
-                print(f"Move {move_number} (Black): {move}, FEN = {self.board.fen()}")
-                move_number += 1
+                if move in self.board.legal_moves:
+                    self.board.push(move)
+                    # Log FEN after Black's move
+                    print(f"Move {move_number} (Black): {move}, FEN = {self.board.fen()}")
+                    move_number += 1
+                else:
+                    print(f"Illegal move by bot: {move}")
+                    break
 
         print(self.board)
         print("\nGame Over! Result: ", self.board.result())
 
-
 if __name__ == "__main__":
-    bot = SimpleChessBot()
+    cwd = os.getcwd()
+    stockfish_path = cwd+"/stockfish/stockfish-ubuntu-x86-64-avx2"
+    print(f"Using Stockfish path: {stockfish_path}")  # Debugging statement
+    bot = SimpleChessBot(stockfish_path=stockfish_path)
     bot.play_game()
