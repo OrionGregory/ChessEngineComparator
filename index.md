@@ -8,6 +8,7 @@ layout: default
 Create an environment where students and chess enthusiasts can create, and compete against other locally hosted, or user created chess bots. 
 
 [Orion Gregory Bio](./bios.md)
+[Tejas Bhadoria Bio](./tejas.md)
 
 
 ## Deliverables
