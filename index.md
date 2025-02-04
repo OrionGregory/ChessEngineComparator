@@ -2,19 +2,20 @@
 layout: default
 ---
 
-# Project Goals
+# Chess Engine Comparator
 
+## Project Goals
 Create an environment where students and chess enthusiasts can create, and compete against other locally hosted, or user created chess bots. 
 
-[Orion Gregory Bio](./bios.md).
+[Orion Gregory Bio](./bios.md)
 
 
 ## Deliverables
 
-[Project Presentation](./initialPresentation.pptx)
-[Project Repository](https://github.com/OrionGregory/ChessEngineComparator)
-[Project Website](https://oriongregory.github.io/ChessEngineComparator/)
-Write up - IN PROGRESS
+[Project Presentation](./initialPresentation.pptx)<br>
+[Project Repository](https://github.com/OrionGregory/ChessEngineComparator)<br>
+[Project Website](https://oriongregory.github.io/ChessEngineComparator/)<br>
+Write up - IN PROGRESS<br>
 Sprint 1 Deliverables
 
 
