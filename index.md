@@ -9,6 +9,7 @@ Create an environment where students and chess enthusiasts can create, and compe
 
 [Orion Gregory Bio](./bios.md)
 [Tejas Bhadoria Bio](./tejas.md)
+[Sebastian Shirk](./sebastian.md)
 
 
 ## Deliverables
