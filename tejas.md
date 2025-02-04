@@ -32,11 +32,11 @@ I have hands-on experience in **web development, backend optimization, and algor
   - Used **Git for version control**, ensuring continuous improvements.
 
 ## Skills
-- **Programming Languages:** C/C++, Go, Java, Python, JavaScript, HTML/CSS  
+- **Programming Languages:** C/C++, Go, Python, JavaScript, HTML/CSS  
 - **Frameworks & Libraries:** React, Node.js, Next.js, Angular  
 - **Cloud Platforms:** Google Cloud Platform, AWS
 - **Databases:** MySQL, MongoDB, PostgreSQL  
-- **Developer Tools:** Git, VS Code, PyCharm, IntelliJ  
+- **Developer Tools:** Git, VS Code, PyCharm, IntelliJ 
 
 ## Contact
 - **Email:** [tejasbhadoria0709@gmail.com](mailto:tejasbhadoria0709@gmail.com)  
