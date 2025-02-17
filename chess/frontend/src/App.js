@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Chessboard } from 'react-chessboard';
+import NavBar from "./components/NavBar";
 
 function App() {
   const [file, setFile] = useState(null);
@@ -93,7 +94,9 @@ function App() {
   };
 
   return (
-    <div className="App" style={{ 
+    <div className="App">
+      <NavBar />
+      <div style={{ 
       display: 'flex', 
       flexDirection: 'column', 
       alignItems: 'center', 
@@ -128,6 +131,7 @@ function App() {
         customDarkSquareStyle={{ backgroundColor: '#779556' }}
         customLightSquareStyle={{ backgroundColor: '#edeed1' }}
       />
+    </div>
     </div>
   );
 }
