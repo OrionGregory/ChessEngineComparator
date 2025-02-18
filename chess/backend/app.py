@@ -19,7 +19,7 @@ GLOBAL_BOTS = {}
 
 def get_stockfish_path():
     current_dir = os.getcwd()
-    windows_path = os.path.join(current_dir, r"stockfish\stockfish-windows-x86-64-avx2.exe")
+    windows_path = "/home/orion/ChessEngineComparator/stockfish/stockfish-ubuntu-x86-64-avx2"
     return windows_path
 
 STOCKFISH_PATH = get_stockfish_path()
@@ -82,12 +82,13 @@ def upload():
 def make_move():
     try:
         data = request.json
-        filename = data.get("filename")
+        # Use default when filename is None or falsy
+        filename = data.get("filename") or "default"
         user_move = data.get("user_move")
 
         print(f"Received move request: filename={filename}, move={user_move}")
 
-        # Check if bot exists, if not, try to recreate it
+        # Check if bot exists, if not, try to recreate it using default or uploaded file
         if filename not in GLOBAL_BOTS:
             # Find the uploaded file
             filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -148,10 +149,9 @@ def make_move():
 def get_fen():
     try:
         data = request.json
-        filename = data.get("filename")
+        filename = data.get("filename") or "default"
 
         if filename not in GLOBAL_BOTS:
-            # Try to recreate the bot
             filepath = os.path.join(UPLOAD_FOLDER, filename)
             if os.path.exists(filepath):
                 GLOBAL_BOTS[filename] = create_bot_instance(filepath)
@@ -166,11 +166,45 @@ def get_fen():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+@app.route("/remove_bot", methods=["POST"])
+def remove_bot():
+    try:
+        data = request.json
+        filename = data.get("filename")
+        
+        if filename in GLOBAL_BOTS:
+            del GLOBAL_BOTS[filename]
+            
+            # Remove the file from uploads folder
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                
+            return jsonify({"success": True, "message": "Bot removed successfully"})
+        
+        return jsonify({"success": False, "error": "Bot not found"}), 404
+        
+    except Exception as e:
+        print(f"Remove bot error: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
 if __name__ == "__main__":
     # Check if the Stockfish executable exists at the given path
     if not os.path.exists(STOCKFISH_PATH):
         print(f"Error: Stockfish executable not found at {STOCKFISH_PATH}")
     else:
         print(f"Using Stockfish path: {STOCKFISH_PATH}")
+
+    # Preload the default bot from uploads/chess_game.py if it exists
+    default_bot_path = os.path.join(UPLOAD_FOLDER, "chess_game.py")
+    if os.path.exists(default_bot_path):
+        try:
+            GLOBAL_BOTS["default"] = create_bot_instance(default_bot_path)
+            print("Default bot loaded from uploads/chess_game.py")
+        except Exception as e:
+            print(f"Error loading default bot: {e}")
+    else:
+        print("No default bot found at uploads/chess_game.py")
 
     app.run(debug=True, port=5000)

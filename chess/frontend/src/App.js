@@ -2,6 +2,15 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Chessboard } from 'react-chessboard';
 import NavBar from "./components/NavBar";
+import {
+  Container,
+  Typography,
+  Button,
+  Box,
+  Paper,
+  Input
+} from '@mui/material';
+import { CloudUpload, Delete } from '@mui/icons-material';
 
 function App() {
   const [file, setFile] = useState(null);
@@ -93,45 +102,102 @@ function App() {
     }
   };
 
+  const removeBot = async () => {
+    if (!game.filename) {
+      alert("No bot is currently loaded");
+      return;
+    }
+
+    try {
+      const response = await axios.post("http://localhost:5000/remove_bot", {
+        filename: game.filename
+      });
+
+      if (response.data.success) {
+        setGame({ 
+          position: 'start', 
+          filename: null,
+          gameOver: false,
+          result: null
+        });
+        alert("Bot removed successfully");
+      }
+    } catch (error) {
+      console.error("Failed to remove bot:", error);
+      alert("Failed to remove bot: " + (error.response?.data?.error || error.message));
+    }
+  };
+
   return (
     <div className="App">
       <NavBar />
-      <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      padding: '20px' 
-    }}>
-      <h1>Chess Bot Arena</h1>
-      
-      <div style={{ marginBottom: '20px' }}>
-        <input 
-          type="file" 
-          onChange={handleFileChange} 
-          accept=".py"
-        />
-        <button onClick={uploadFile}>Upload Bot</button>
-      </div>
+      <Container maxWidth="lg">
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+          <Typography variant="h3" gutterBottom>
+            Chess Bot Arena
+          </Typography>
+          
+          <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Input
+                type="file"
+                onChange={handleFileChange}
+                accept=".py"
+                sx={{ display: 'none' }}
+                id="bot-upload"
+              />
+              <label htmlFor="bot-upload">
+                <Button
+                  variant="contained"
+                  component="span"
+                  startIcon={<CloudUpload />}
+                >
+                  Choose Bot File
+                </Button>
+              </label>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={uploadFile}
+                disabled={!file}
+              >
+                Upload Bot
+              </Button>
+            </Box>
+          </Paper>
 
-      {game.filename && (
-        <div style={{ marginBottom: '20px' }}>
-          <p>Current Bot: {game.filename}</p>
-          {game.gameOver && (
-            <p style={{ color: 'red', fontWeight: 'bold' }}>
-              Game Over! Result: {game.result}
-            </p>
+          {game.filename && (
+            <Paper elevation={3} sx={{ p: 2, mb: 3, width: '100%', maxWidth: 600 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography>Current Bot: {game.filename}</Typography>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={removeBot}
+                  startIcon={<Delete />}
+                >
+                  Remove Bot
+                </Button>
+              </Box>
+              {game.gameOver && (
+                <Typography color="error" sx={{ mt: 1, fontWeight: 'bold' }}>
+                  Game Over! Result: {game.result}
+                </Typography>
+              )}
+            </Paper>
           )}
-        </div>
-      )}
 
-      <Chessboard 
-        position={game.position} 
-        onPieceDrop={onDrop} 
-        boardWidth={600}
-        customDarkSquareStyle={{ backgroundColor: '#779556' }}
-        customLightSquareStyle={{ backgroundColor: '#edeed1' }}
-      />
-    </div>
+          <Box sx={{ width: '100%', maxWidth: 600 }}>
+            <Chessboard
+              position={game.position}
+              onPieceDrop={onDrop}
+              boardWidth={600}
+              customDarkSquareStyle={{ backgroundColor: '#779556' }}
+              customLightSquareStyle={{ backgroundColor: '#edeed1' }}
+            />
+          </Box>
+        </Box>
+      </Container>
     </div>
   );
 }
