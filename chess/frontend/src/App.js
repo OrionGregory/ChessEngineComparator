@@ -1,139 +1,145 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Chessboard } from 'react-chessboard';
+import { Chess } from 'chess.js';
 import NavBar from "./components/NavBar";
 
+const sessionId = "test_session";
+
 function App() {
-  const [file, setFile] = useState(null);
-  const [game, setGame] = useState({ 
-    position: 'start', 
-    filename: null,
-    gameOver: false,
-    result: null
-  });
-  
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
+  const [fen, setFen] = useState("start");
+  const [status, setStatus] = useState("");
+  const [gameOver, setGameOver] = useState(false);
+  const chess = new Chess(); //
 
-  const uploadFile = async () => {
-    if (!file) {
-      alert("Please select a file first");
-      return;
-    }
+  useEffect(() => {
+    const interval = setInterval(fetchFEN, 100000);
+    return () => clearInterval(interval);
+  }, []);
 
-    const formData = new FormData();
-    formData.append("file", file);
-
+  const fetchFEN = async () => {
     try {
-      const response = await axios.post("http://localhost:5000/upload", formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+      const response = await axios.get("http://localhost:5000/get_fen", {
+        params: { session_id: sessionId }
       });
-      
-      console.log("Upload response:", response.data);
-      
-      if (response.data.filename) {
-        setGame({ 
-          position: response.data.initial_fen, 
-          filename: response.data.filename,
-          gameOver: false,
-          result: null
-        });
-        alert("File uploaded successfully");
+  
+      if (response.data.fen) {
+        setFen(response.data.fen);
+        checkGameOver(response.data.fen);
       } else {
-        alert("Upload failed: No filename returned");
+        console.error("Invalid response:", response.data);
       }
     } catch (error) {
-      console.error("Upload failed", error);
-      alert("Upload failed: " + (error.response?.data?.error || error.message));
+      console.error("Error fetching FEN:", error.response ? error.response.data : error.message);
+  
+      // If session is missing, initialize a new game
+      if (error.response && error.response.data.error === "Session not found") {
+        console.warn("Session not found! Initializing new game...");
+        await newGame();
+      }
+    }
+  };
+
+  const checkGameOver = (fen) => {
+    chess.load(fen);
+    if (chess.isGameOver()) {
+      setGameOver(true);
+      if (chess.isCheckmate()) {
+        setStatus(chess.turn() === 'w' ? "Bot Won! 😞" : "You Won! 🎉");
+      } else {
+        setStatus("It's a Draw! 🤝");
+      }
     }
   };
 
   const onDrop = async (sourceSquare, targetSquare) => {
-    if (game.gameOver) {
-      alert("Game is already over!");
-      return;
-    }
+    if (gameOver) return;
 
-    const move = `${sourceSquare}${targetSquare}`;
-    console.log(`Attempting move: ${move}`);
-    console.log(`Current game state:`, game);
-
+    const move = { from: sourceSquare, to: targetSquare, promotion: "q" };
+    chess.load(fen);
     try {
-      const response = await axios.post("http://localhost:5000/make_move", {
-        filename: game.filename,
-        user_move: move,
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
+      const result = chess.move(move);
+      if (!result) {
+        setStatus("Invalid move! Try again.");
+        return;
+      }
+
+      setFen(chess.fen());
+      setStatus("");
+
+      await axios.post("http://localhost:5000/update_fen", {
+        session_id: sessionId,
+        fen: chess.fen(),
+      });
+    } catch (error) {
+      setStatus("Invalid move! Try again.");
+    }
+  };
+
+  const newGame = async () => {
+    try {
+      const response = await axios.post("http://localhost:5000/new_game", {
+        session_id: sessionId,
       });
 
-      console.log("Server response:", response.data);
-
-      if (response.data.valid) {
-        setGame({
-          ...game,
-          position: response.data.fen,
-          gameOver: response.data.game_over || false,
-          result: response.data.result || null
-        });
-
-        if (response.data.game_over) {
-          alert(`Game Over! Result: ${response.data.result}`);
-        }
-      } else {
-        console.warn("Invalid move details:", response.data);
-        alert("Invalid move! Try again.");
+      if (response.data.success) {
+        setFen(response.data.fen);
+        setGameOver(false);
+        setStatus("");
       }
     } catch (error) {
-      console.error("Move failed", error.response ? error.response.data : error);
+      console.error("Error starting a new game:", error);
     }
   };
 
   return (
-    <div className="App">
+    
+    <div style={styles.container}>
       <NavBar />
       <div style={{ 
       display: 'flex', 
       flexDirection: 'column', 
       alignItems: 'center', 
       padding: '20px' 
-    }}>
-      <h1>Chess Bot Arena</h1>
-      
-      <div style={{ marginBottom: '20px' }}>
-        <input 
-          type="file" 
-          onChange={handleFileChange} 
-          accept=".py"
-        />
-        <button onClick={uploadFile}>Upload Bot</button>
-      </div>
-
-      {game.filename && (
-        <div style={{ marginBottom: '20px' }}>
-          <p>Current Bot: {game.filename}</p>
-          {game.gameOver && (
-            <p style={{ color: 'red', fontWeight: 'bold' }}>
-              Game Over! Result: {game.result}
-            </p>
-          )}
-        </div>
-      )}
-
-      <Chessboard 
-        position={game.position} 
-        onPieceDrop={onDrop} 
-        boardWidth={600}
+    }}></div>
+      <h1 style={styles.title}>Play as White!</h1>
+      <Chessboard position={fen} onPieceDrop={onDrop} boardWidth={600}
         customDarkSquareStyle={{ backgroundColor: '#779556' }}
         customLightSquareStyle={{ backgroundColor: '#edeed1' }}
       />
-    </div>
+      <p style={styles.status}>{status}</p>
+      <button style={styles.button} onClick={newGame}>New Game</button>
     </div>
   );
 }
+
+const styles = {
+  container: {
+    textAlign: 'center',
+    padding: '20px',
+    fontFamily: 'Arial, sans-serif',
+    backgroundColor: '#f5f5f5',
+    minHeight: '100vh',
+  },
+  title: {
+    fontSize: '2rem',
+    marginBottom: '20px',
+  },
+  status: {
+    fontSize: '1.2rem',
+    color: 'red',
+    marginTop: '10px',
+  },
+  button: {
+    marginTop: '15px',
+    padding: '10px 20px',
+    fontSize: '1rem',
+    backgroundColor: '#007bff',
+    color: 'white',
+    border: 'none',
+    borderRadius: '5px',
+    cursor: 'pointer',
+  },
+};
 
 export default App;
