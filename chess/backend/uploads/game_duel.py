@@ -112,8 +112,8 @@ def game_duel(num_games, stockfish_path,
             draws += 1
 
         requiredgames = (num_games // 2) + 1
-        # Stop early if one bot reaches 6 wins.
-        if botA_wins == (requiredgames) or botB_wins == (requiredgames):
+        # Stop early if one bot reaches the required wins.
+        if botA_wins >= requiredgames or botB_wins >= requiredgames:
             print("Series decided!")
             break
 
@@ -141,6 +141,15 @@ def game_duel(num_games, stockfish_path,
     print(f"{botA_name} (skill={botA_skill_level}) wins (BotA): {botA_wins}")
     print(f"{botB_name} (skill={botB_skill_level}) wins (BotB): {botB_wins}")
     print("Draws:", draws)
+
+    # Determine the final series winner and return it.
+    if botA_wins > botB_wins:
+        final_winner = "BotA"
+    elif botB_wins > botA_wins:
+        final_winner = "BotB"
+    else:
+        final_winner = "Draw"
+    return result, final_winner
 
 if __name__ == "__main__":
     from chess_bot import SimpleChessBot
