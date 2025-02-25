@@ -6,6 +6,8 @@ from flask_cors import CORS
 import importlib.util
 import sys
 import traceback
+from io import StringIO
+from contextlib import contextmanager
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -54,6 +56,16 @@ def create_bot_instance(filepath):
 
     # Instantiate the chess bot with the correct Stockfish path
     return chess_bot_class(stockfish_path=STOCKFISH_PATH)
+
+@contextmanager
+def capture_output():
+    new_out = StringIO()
+    old_out = sys.stdout
+    sys.stdout = new_out
+    try:
+        yield new_out
+    finally:
+        sys.stdout = old_out
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -188,6 +200,85 @@ def remove_bot():
         print(f"Remove bot error: {e}")
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/run_tournament", methods=["GET"])
+def run_tournament():
+    try:
+        print("\n=== Tournament Execution Start ===")
+        print(f"Current working directory: {os.getcwd()}")
+        
+        # Add the uploads directory to Python path
+        uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+        sys.path.append(uploads_dir)
+        print(f"Python path updated: {sys.path}")
+        
+        # List files in uploads directory
+        print("\nFiles in uploads directory:")
+        for file in os.listdir(uploads_dir):
+            print(f"- {file}")
+        
+        # Use absolute path to tournament.py
+        tournament_path = os.path.join(uploads_dir, "tournament.py")
+        print(f"\nLooking for tournament file at: {tournament_path}")
+        
+        if not os.path.exists(tournament_path):
+            print(f"ERROR: Tournament file not found!")
+            return jsonify({"error": f"Tournament file not found at {tournament_path}"}), 404
+            
+        print("Found tournament.py, checking dependencies...")
+        
+        # Check for required files with detailed logging
+        dependencies = ['game_duel.py', 'chess_bot.py']
+        missing_files = []
+        for dep in dependencies:
+            dep_path = os.path.join(uploads_dir, dep)
+            if os.path.exists(dep_path):
+                print(f"✓ Found {dep}")
+            else:
+                print(f"✗ Missing {dep}")
+                missing_files.append(dep)
+        
+        if missing_files:
+            error_msg = f"Missing required files: {', '.join(missing_files)}"
+            print(f"\nERROR: {error_msg}")
+            return jsonify({"error": error_msg}), 404
+            
+        print("\nAll dependencies found, starting tournament...")
+        
+        with capture_output() as output:
+            try:
+                print("Importing tournament module...")
+                spec = importlib.util.spec_from_file_location("tournament", tournament_path)
+                tournament_module = importlib.util.module_from_spec(spec)
+                print("Executing tournament module...")
+                spec.loader.exec_module(tournament_module)
+                print("Tournament execution completed successfully")
+            except Exception as e:
+                print(f"ERROR during tournament execution: {str(e)}")
+                traceback.print_exc()
+                raise
+            
+            # Get the captured output
+            tournament_logs = output.getvalue()
+            print(f"\nOutput captured successfully ({len(tournament_logs)} characters)")
+            
+            # Remove the uploads directory from Python path
+            sys.path.remove(uploads_dir)
+            
+            return jsonify({
+                "output": tournament_logs,
+                "status": "completed",
+                "timestamp": datetime.datetime.now().isoformat()
+            })
+            
+    except Exception as e:
+        error_msg = f"Tournament error: {str(e)}\n{traceback.format_exc()}"
+        print(f"\nERROR: {error_msg}")
+        return jsonify({
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "status": "failed"
+        }), 500
 
 if __name__ == "__main__":
     # Check if the Stockfish executable exists at the given path

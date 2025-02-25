@@ -8,7 +8,8 @@ import {
   Button,
   Box,
   Paper,
-  Input
+  Input,
+  CircularProgress
 } from '@mui/material';
 import { CloudUpload, Delete } from '@mui/icons-material';
 
@@ -20,6 +21,8 @@ function App() {
     gameOver: false,
     result: null
   });
+  const [tournamentLogs, setTournamentLogs] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -128,6 +131,42 @@ function App() {
     }
   };
 
+  const runTournament = async () => {
+    setIsLoading(true);
+    setTournamentLogs('Starting tournament...\n');
+    try {
+        const response = await axios.get("http://localhost:5000/run_tournament");
+        const data = response.data;
+        
+        let logContent = '';
+        if (data.status === 'completed') {
+            logContent = `=== Tournament Execution ===\n`;
+            logContent += `Started at: ${data.timestamp}\n`;
+            logContent += `${'-'.repeat(50)}\n\n`;
+            logContent += data.output;
+            logContent += `\n${'-'.repeat(50)}\n`;
+            logContent += `Tournament completed successfully\n`;
+        }
+        
+        setTournamentLogs(logContent);
+    } catch (error) {
+        console.error("Tournament failed:", error);
+        let errorMessage = 'Tournament Execution Failed\n';
+        errorMessage += '-'.repeat(50) + '\n';
+        errorMessage += `Error: ${error.response?.data?.error || error.message}\n\n`;
+        
+        if (error.response?.data?.traceback) {
+            errorMessage += 'Detailed Error:\n';
+            errorMessage += error.response.data.traceback;
+        }
+        
+        setTournamentLogs(errorMessage);
+        alert("Failed to run tournament. Check the logs for details.");
+    } finally {
+        setIsLoading(false);
+    }
+};
+
   return (
     <div className="App">
       <NavBar />
@@ -196,6 +235,51 @@ function App() {
               customLightSquareStyle={{ backgroundColor: '#edeed1' }}
             />
           </Box>
+
+          {/* Tournament Section */}
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              mt: 4,
+              width: '100%', 
+              maxWidth: 800,
+              mx: 'auto',
+              p: 2 
+            }}
+          >
+            <Typography variant="h5" gutterBottom>
+              Tournament Results
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={runTournament}
+              disabled={isLoading}
+              sx={{ mb: 2 }}
+            >
+              Run Tournament
+            </Button>
+            
+            {isLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <Paper
+                sx={{
+                  backgroundColor: '#f5f5f5',
+                  p: 2,
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  fontFamily: 'monospace',
+                  whiteSpace: 'pre-wrap',
+                  fontSize: '0.9em'
+                }}
+              >
+                {tournamentLogs || 'Click "Run Tournament" to see results'}
+              </Paper>
+            )}
+          </Paper>
         </Box>
       </Container>
     </div>
