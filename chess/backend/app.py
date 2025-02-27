@@ -3,21 +3,182 @@ import chess
 from stockfish import Stockfish
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from werkzeug.utils import secure_filename
 import importlib.util
 import sys
 import traceback
 from io import StringIO
 from contextlib import contextmanager
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
+bcrypt = Bcrypt(app)
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+jwt = JWTManager(app)
 
-# Directory where chess bot files will be uploaded
+DATABASE_URL = os.getenv('DATABASE_URL')
+
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Global dictionary to store bot instances
 GLOBAL_BOTS = {}
+
+@app.route("/run_bot_command", methods=["POST"])
+@jwt_required()
+def run_bot_command():
+    user_id = get_jwt_identity()  # Authenticated user's id
+    data = request.json
+    file_id = data.get("file_id")
+    if not file_id:
+        return jsonify({"error": "file_id is required"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Ensure the file belongs to the current user
+        cursor.execute(
+            "SELECT filename, filepath FROM user_files WHERE id = %s AND user_id = %s",
+            (file_id, user_id)
+        )
+        file_record = cursor.fetchone()
+        if not file_record:
+            return jsonify({"error": "File not found or access denied"}), 404
+        
+        # Get the file path and load the chess bot dynamically
+        filepath = file_record['filepath']
+        bot_instance = create_bot_instance(filepath)
+        
+        # Execute a command: for example, let the bot select a move.
+        move = bot_instance.select_move()
+        bot_instance.board.push(move)
+        
+        return jsonify({
+            "message": "Bot command executed successfully",
+            "move": str(move),
+            "fen": bot_instance.board.fen()
+        }), 200
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/my_files", methods=["GET"])
+@jwt_required()
+def my_files():
+    user_id = get_jwt_identity()  # Current user's id (as a string)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT id, filename, filepath, uploaded_at FROM user_files WHERE user_id = %s",
+            (user_id,)
+        )
+        files = cursor.fetchall()
+        return jsonify({"files": files}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/upload_file", methods=["POST"])
+@jwt_required()
+def upload_file():
+    # Get the authenticated user's id from the JWT
+    user_id = get_jwt_identity()
+    
+    # Check if a file was sent with the request
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+    
+    # Secure the filename and determine the file path
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    
+    try:
+        # Save the file to disk
+        file.save(filepath)
+    except Exception as e:
+        return jsonify({"error": f"File saving failed: {str(e)}"}), 500
+
+    # Save file metadata to the database
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO user_files (user_id, filename, filepath) VALUES (%s, %s, %s) RETURNING id",
+            (user_id, filename, filepath)
+        )
+        file_id = cursor.fetchone()['id']
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": f"Database insert failed: {str(e)}"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+    return jsonify({"message": "File uploaded successfully", "file_id": file_id}), 201
+
+# Database connection
+def get_db_connection():
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    return conn
+
+# User Registration
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.json
+    username = data['username']
+    email = data['email']  # New: extract email from the request
+    password = data['password']
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            'INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s)',
+            (username, email, hashed_password)
+        )
+        conn.commit()
+        return jsonify({'message': 'User registered successfully'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+# User Login
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data['username']
+    password = data['password']
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    # Use 'password_hash' when checking the password
+    if user and bcrypt.check_password_hash(user['password_hash'], password):
+        access_token = create_access_token(identity=str(user['id']))
+        return jsonify({'token': access_token}), 200
+    return jsonify({'error': 'Invalid username or password'}), 401
 
 def get_stockfish_path():
     current_dir = os.getcwd()
