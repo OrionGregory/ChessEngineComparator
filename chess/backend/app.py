@@ -1,3 +1,4 @@
+import datetime
 import os
 import chess
 from stockfish import Stockfish
@@ -182,7 +183,7 @@ def login():
 
 def get_stockfish_path():
     current_dir = os.getcwd()
-    windows_path = "/home/orion/ChessEngineComparator/stockfish/stockfish-ubuntu-x86-64-avx2"
+    windows_path = r"C:\ChessEngineComparator\ChessEngineComparator\chess\backend\stockfish\stockfish-windows-x86-64-avx2.exe"
     return windows_path
 
 STOCKFISH_PATH = get_stockfish_path()

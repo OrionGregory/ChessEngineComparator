@@ -4,7 +4,7 @@ import os
 
 # A simple chess bot using Stockfish with adjustable skill level
 class SimpleChessBot:
-    def __init__(self, stockfish_path=None, skill_level=20):
+    def __init__(self, stockfish_path=r"", skill_level=20):
         # When using process_fen, we always get an incoming FEN
         self.board = None
         # If needed, initialize your Stockfish engine.
@@ -106,9 +106,8 @@ class SimpleChessBot:
 
 if __name__ == "__main__":
     cwd = os.getcwd()
-    stockfish_path = cwd + "/stockfish/stockfish-ubuntu-x86-64-avx2"
+    stockfish_path = r"C:\ChessEngineComparator\ChessEngineComparator\chess\backend\stockfish\stockfish-windows-x86-64-avx2.exe"
     print(f"Using Stockfish path: {stockfish_path}")  # Debugging statement
-    
     # Adjust skill level (0 is weakest, 20 is strongest)
     skill_level = 5  # Set this to any value between 0 and 20
     bot = SimpleChessBot(stockfish_path=stockfish_path, skill_level=skill_level)

@@ -156,7 +156,7 @@ if __name__ == "__main__":
     from stupidbot import StupidChessBot
 
     cwd = os.getcwd()
-    stockfish_path = os.path.join(cwd, "stockfish", "stockfish-ubuntu-x86-64-avx2")
+    stockfish_path = r"C:\ChessEngineComparator\ChessEngineComparator\chess\backend\stockfish\stockfish-windows-x86-64-avx2.exe"
 
     game_duel(num_games=13,
               stockfish_path=stockfish_path,

@@ -1,6 +1,7 @@
 import os
 from game_duel import game_duel
 from chess_bot import SimpleChessBot
+from stupidbot import StupidChessBot
 
 # Define the Stockfish path
 cwd = os.getcwd()
@@ -14,7 +15,7 @@ entrants = []
 for level in difficulties:
     entrant = {
         'name': f"SimpleChessBot (skill={level})",
-        'bot_class': SimpleChessBot,
+        'bot_class': StupidChessBot,
         'skill_level': level,
         'points': 0
     }

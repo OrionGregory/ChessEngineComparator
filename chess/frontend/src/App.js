@@ -9,11 +9,22 @@ import {
   Box,
   Paper,
   Input,
+  TextField,
   CircularProgress
 } from '@mui/material';
 import { CloudUpload, Delete } from '@mui/icons-material';
 
 function App() {
+  // Authentication state
+  const [token, setToken] = useState(null);
+  const [isLogin, setIsLogin] = useState(true);
+  const [authForm, setAuthForm] = useState({
+    username: '',
+    email: '',
+    password: ''
+  });
+
+  // Game state
   const [file, setFile] = useState(null);
   const [game, setGame] = useState({ 
     position: 'start', 
@@ -23,7 +34,57 @@ function App() {
   });
   const [tournamentLogs, setTournamentLogs] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
+  const handleAuthChange = (e) => {
+    setAuthForm({
+      ...authForm,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    if (isLogin) {
+      // Login
+      try {
+        const response = await axios.post("http://localhost:5000/login", {
+          username: authForm.username,
+          password: authForm.password
+        });
+        setToken(response.data.token);
+        alert("Login successful");
+      } catch (error) {
+        alert("Login failed: " + (error.response?.data?.error || error.message));
+      }
+    } else {
+      // Registration
+      try {
+        const response = await axios.post("http://localhost:5000/register", {
+          username: authForm.username,
+          email: authForm.email,
+          password: authForm.password
+        });
+        alert(response.data.message);
+        // Optionally log in right after registration
+        const loginRes = await axios.post("http://localhost:5000/login", {
+          username: authForm.username,
+          password: authForm.password
+        });
+        setToken(loginRes.data.token);
+        alert("Registration and login successful");
+      } catch (error) {
+        alert("Registration failed: " + (error.response?.data?.error || error.message));
+      }
+    }
+  };
+
+  // Logout handler
+  const handleLogout = () => {
+    setToken(null);
+    alert("Logged out successfully");
+  };
+
+  // File upload and game logic
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
   };
@@ -135,41 +196,123 @@ function App() {
     setIsLoading(true);
     setTournamentLogs('Starting tournament...\n');
     try {
-        const response = await axios.get("http://localhost:5000/run_tournament");
-        const data = response.data;
-        
-        let logContent = '';
-        if (data.status === 'completed') {
-            logContent = `=== Tournament Execution ===\n`;
-            logContent += `Started at: ${data.timestamp}\n`;
-            logContent += `${'-'.repeat(50)}\n\n`;
-            logContent += data.output;
-            logContent += `\n${'-'.repeat(50)}\n`;
-            logContent += `Tournament completed successfully\n`;
-        }
-        
-        setTournamentLogs(logContent);
+      const response = await axios.get("http://localhost:5000/run_tournament");
+      const data = response.data;
+      
+      let logContent = '';
+      if (data.status === 'completed') {
+        logContent = `=== Tournament Execution ===\n`;
+        logContent += `Started at: ${data.timestamp}\n`;
+        logContent += `${'-'.repeat(50)}\n\n`;
+        logContent += data.output;
+        logContent += `\n${'-'.repeat(50)}\n`;
+        logContent += `Tournament completed successfully\n`;
+      }
+      
+      setTournamentLogs(logContent);
     } catch (error) {
-        console.error("Tournament failed:", error);
-        let errorMessage = 'Tournament Execution Failed\n';
-        errorMessage += '-'.repeat(50) + '\n';
-        errorMessage += `Error: ${error.response?.data?.error || error.message}\n\n`;
-        
-        if (error.response?.data?.traceback) {
-            errorMessage += 'Detailed Error:\n';
-            errorMessage += error.response.data.traceback;
-        }
-        
-        setTournamentLogs(errorMessage);
-        alert("Failed to run tournament. Check the logs for details.");
+      console.error("Tournament failed:", error);
+      let errorMessage = 'Tournament Execution Failed\n';
+      errorMessage += '-'.repeat(50) + '\n';
+      errorMessage += `Error: ${error.response?.data?.error || error.message}\n\n`;
+      
+      if (error.response?.data?.traceback) {
+        errorMessage += 'Detailed Error:\n';
+        errorMessage += error.response.data.traceback;
+      }
+      
+      setTournamentLogs(errorMessage);
+      alert("Failed to run tournament. Check the logs for details.");
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-};
+  };
 
+  // Top header with conditional Login/Logout button
+  const renderTopHeader = () => (
+    <Box
+      sx={{
+        backgroundColor: '#f5f5f5',
+        p: 1,
+        display: 'flex',
+        justifyContent: 'flex-end',
+        border: '2px solid red'  // temporary debug border
+      }}
+    >
+      { token ? (
+        <Button variant="outlined" onClick={handleLogout}>
+          Logout
+        </Button>
+      ) : (
+        <Button variant="outlined" onClick={() => setIsLogin(true)}>
+          Login
+        </Button>
+      )}
+    </Box>
+  );
+
+  // If the user is not logged in, show the auth form (with header)
+  if (!token) {
+    return (
+      <>
+        <NavBar />
+        {renderTopHeader()}
+        <Container maxWidth="sm">
+          <Paper elevation={3} sx={{ p: 3, mt: 4 }}>
+            <Typography variant="h4" gutterBottom>
+              {isLogin ? "Login" : "Register"}
+            </Typography>
+            <form onSubmit={handleAuthSubmit}>
+              <TextField
+                name="username"
+                label="Username"
+                fullWidth
+                value={authForm.username}
+                onChange={handleAuthChange}
+                sx={{ mb: 2 }}
+              />
+              {!isLogin && (
+                <TextField
+                  name="email"
+                  label="Email"
+                  fullWidth
+                  value={authForm.email}
+                  onChange={handleAuthChange}
+                  sx={{ mb: 2 }}
+                />
+              )}
+              <TextField
+                name="password"
+                label="Password"
+                type="password"
+                fullWidth
+                value={authForm.password}
+                onChange={handleAuthChange}
+                sx={{ mb: 2 }}
+              />
+              <Button type="submit" variant="contained" color="primary" fullWidth>
+                {isLogin ? "Login" : "Register"}
+              </Button>
+            </form>
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Button onClick={() => {
+                setIsLogin(!isLogin);
+                setAuthForm({ username: '', email: '', password: '' });
+              }} color="secondary">
+                {isLogin ? "Don't have an account? Register" : "Already have an account? Login"}
+              </Button>
+            </Box>
+          </Paper>
+        </Container>
+      </>
+    );
+  }
+
+  // Main app content renders after login, with top header
   return (
     <div className="App">
       <NavBar />
+      {renderTopHeader()}
       <Container maxWidth="lg">
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
           <Typography variant="h3" gutterBottom>

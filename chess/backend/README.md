@@ -4,6 +4,7 @@
 
 1. **Download PostgreSQL:**  
    Visit the [PostgreSQL Downloads](https://www.postgresql.org/download/) page and follow the installation instructions for your operating system (Windows, macOS, or Linux).
+   Use the SQL Shell Terminal from here on out
 
 2. **Verify Installation:**  
    Open a terminal and run:
