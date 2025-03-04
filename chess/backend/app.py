@@ -2,7 +2,7 @@ import datetime
 import os
 import chess
 from stockfish import Stockfish
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, url_for, session, redirect
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -15,6 +15,7 @@ from contextlib import contextmanager
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
+from authlib.integrations.flask_client import OAuth
 
 load_dotenv()
 
@@ -30,6 +31,82 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 GLOBAL_BOTS = {}
+
+# Add OAuth configuration
+oauth = OAuth(app)
+
+# Configure OAuth providers
+# Make sure to get these credentials from the Google Developer Console
+google = oauth.register(
+    name='google',
+    client_id=os.getenv('GOOGLE_CLIENT_ID'),
+    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    access_token_url='https://accounts.google.com/o/oauth2/token',
+    access_token_params=None,
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
+    authorize_params=None,
+    api_base_url='https://www.googleapis.com/oauth2/v1/',
+    userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',
+    client_kwargs={'scope': 'openid email profile'},
+)
+
+# Google OAuth login route
+@app.route('/login/google')
+def google_login():
+    redirect_uri = url_for('google_authorize', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+# Google OAuth callback route
+@app.route('/login/google/callback')
+def google_authorize():
+    token = google.authorize_access_token()
+    resp = google.get('userinfo')
+    user_info = resp.json()
+    
+    # Check if user already exists in our database
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Try to find user by email
+        cursor.execute('SELECT * FROM users WHERE email = %s', (user_info['email'],))
+        user = cursor.fetchone()
+        
+        if not user:
+            # Create a new user if not exists
+            # Generate a random username based on email if needed
+            username = user_info['email'].split('@')[0]
+            # No password for OAuth users
+            cursor.execute(
+                'INSERT INTO users (username, email, oauth_provider, oauth_id) VALUES (%s, %s, %s, %s) RETURNING id',
+                (username, user_info['email'], 'google', user_info['id'])
+            )
+            conn.commit()
+            user_id = cursor.fetchone()['id']
+        else:
+            # Update existing user's OAuth info if needed
+            user_id = user['id']
+            if not user.get('oauth_provider'):
+                cursor.execute(
+                    'UPDATE users SET oauth_provider = %s, oauth_id = %s WHERE id = %s',
+                    ('google', user_info['id'], user_id)
+                )
+                conn.commit()
+        
+        # Generate JWT token for the user
+        access_token = create_access_token(identity=str(user_id))
+        
+        # Return token and redirect to frontend
+        # In production, use a secure way to pass the token to frontend
+        redirect_url = f"http://localhost:3001/oauth-callback?token={access_token}"
+        return redirect(redirect_url)
+    
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route("/run_bot_command", methods=["POST"])
 @jwt_required()

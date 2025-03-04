@@ -78,6 +78,12 @@ Use the token that you get back after logging in for `YOUR_JWT_TOKEN_HERE`
 curl -X GET http://localhost:5000/my_files \
   -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"
 ```
+FOR OAUTH YOU NEED TO ADD THE FOLLOWING TO THE USERS TABLE
+```
+ALTER TABLE users 
+ADD COLUMN oauth_provider VARCHAR(50),
+ADD COLUMN oauth_id VARCHAR(255);
+```
 
 ## Run File as Bot
 `I don't know if this works because I'm having stockfish pathing problems`  
