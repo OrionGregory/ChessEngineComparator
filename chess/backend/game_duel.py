@@ -1,11 +1,6 @@
-import os
+# game_duel.py
 import chess
-from chess_bot import SimpleChessBot
-from oldbot import SimpleChessBot as OldChessBot
-from stupidbot import StupidChessBot
 
-botA_skill_level = 1
-botB_skill_level = 1
 botA_name = None
 botB_name = None
 
@@ -28,13 +23,14 @@ def validate_move(current_board, new_fen) -> bool:
             return True
     return False
 
-def play_single_game(stockfish_path, game_number,
+def play_single_game(game_number,
                      botA_class, botA_skill_level,
                      botB_class, botB_skill_level):
     board = chess.Board()
     move_number = 1
-    botA = botA_class(stockfish_path, botA_skill_level)
-    botB = botB_class(stockfish_path, botB_skill_level)
+    # Instantiate bots.
+    botA = botA_class(botA_skill_level)
+    botB = botB_class(botB_skill_level)
     
     global botA_name, botB_name
     botA_name = botA.__class__.__name__
@@ -93,7 +89,7 @@ def play_single_game(stockfish_path, game_number,
     print("Game winner:", winner)
     return result, winner
 
-def game_duel(num_games, stockfish_path,
+def game_duel(num_games,
               botA_class, botA_skill_level,
               botB_class, botB_skill_level):
     botA_wins = 0
@@ -101,7 +97,7 @@ def game_duel(num_games, stockfish_path,
     draws = 0
 
     for game in range(1, num_games + 1):
-        result, winner = play_single_game(stockfish_path, game,
+        result, winner = play_single_game(game,
                                           botA_class, botA_skill_level,
                                           botB_class, botB_skill_level)
         if winner == "BotA":
@@ -122,7 +118,7 @@ def game_duel(num_games, stockfish_path,
         print("\nSeries is tied. Entering overtime elimination rounds!")
         overtime_game = num_games + 1
         while True:
-            result, winner = play_single_game(stockfish_path, overtime_game,
+            result, winner = play_single_game(overtime_game,
                                               botA_class, botA_skill_level,
                                               botB_class, botB_skill_level)
             # Count only decisive games.
@@ -152,13 +148,8 @@ def game_duel(num_games, stockfish_path,
     return result, final_winner
 
 if __name__ == "__main__":
-    from chess_bot import SimpleChessBot
-    from stupidbot import StupidChessBot
-
-    cwd = os.getcwd()
-    stockfish_path = r"C:\ChessEngineComparator\ChessEngineComparator\chess\backend\stockfish\stockfish-windows-x86-64-avx2.exe"
-
+    # Example run (make sure you have a bot to test against)
+    from chess_bot import ChessBot  # or use one of your uploaded bots
     game_duel(num_games=13,
-              stockfish_path=stockfish_path,
-              botA_class=SimpleChessBot, botA_skill_level=1,
-              botB_class=SimpleChessBot, botB_skill_level=20)
+              botA_class=ChessBot, botA_skill_level=1,
+              botB_class=ChessBot, botB_skill_level=20)
