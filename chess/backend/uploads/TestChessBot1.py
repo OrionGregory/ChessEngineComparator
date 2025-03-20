@@ -56,7 +56,7 @@ class TestChessBot1(ChessBot):
         self.skill_level = skill_level
         self.board = chess.Board()
         # Initialize Stockfish with the given executable.
-        self.stockfish = Stockfish("c:/ChessEngineComparator/ChessEngineComparator/chess/backend/stockfish/stockfish-windows-x86-64-avx2.exe",
+        self.stockfish = Stockfish(r"C:\ChessEngineComparator\chess\backend\stockfish\stockfish-windows-x86-64-avx2.exe",
                                     parameters={"Threads": 2, "Minimum Thinking Time": 30})
     
     def select_move(self, legal_moves=None):
