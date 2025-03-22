@@ -135,3 +135,13 @@ uploads/__pycache__/chessBot.cpython-311.pyc
 
 /.venv
 *.pyc
+
+# Security files
+.env
+__pycache__/
+*.pyc
+client_secret.json
+cert.pem
+key.pem
+
+
