@@ -1,13 +1,23 @@
-from flask import url_for, redirect, jsonify
-from app import app, oauth, get_db_connection, create_access_token
+from flask import Blueprint, url_for, redirect, jsonify
 
-google = oauth.create_client('google')
+google_oauth_bp = Blueprint('google_oauth', __name__)
 
+def get_google_client():
+    # Lazy import to avoid circular dependency
+    from app import oauth
+    return oauth.create_client('google')
+
+@google_oauth_bp.route('/login/google')
 def google_login():
-    redirect_uri = url_for('google_authorize', _external=True)
+    google = get_google_client()
+    redirect_uri = url_for('google_oauth.google_authorize', _external=True)
     return google.authorize_redirect(redirect_uri)
 
+@google_oauth_bp.route('/login/google/callback')
 def google_authorize():
+    # Lazy import to avoid circular dependency
+    from app import get_db_connection, create_access_token
+    google = get_google_client()
     token = google.authorize_access_token()
     resp = google.get('userinfo')
     user_info = resp.json()

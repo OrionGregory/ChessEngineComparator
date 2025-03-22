@@ -1,5 +1,4 @@
-from flask import request, jsonify
-from app import create_bot_instance, GLOBAL_BOTS, UPLOAD_FOLDER, capture_output
+from flask import Blueprint, request, jsonify
 import os
 import chess
 import importlib.util
@@ -7,8 +6,13 @@ import sys
 import traceback
 import datetime
 
+chess_bot_bp = Blueprint('chess_bot', __name__)
+
+@chess_bot_bp.route('/upload', methods=['POST'])
 def upload():
     try:
+        # Lazy imports
+        from app import create_bot_instance, GLOBAL_BOTS, UPLOAD_FOLDER
         file = request.files["file"]
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
@@ -26,11 +30,15 @@ def upload():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+@chess_bot_bp.route('/make_move', methods=['POST'])
 def make_move():
     try:
         data = request.json
         filename = data.get("filename") or "default"
         user_move = data.get("user_move")
+
+        # Lazy imports
+        from app import create_bot_instance, GLOBAL_BOTS, UPLOAD_FOLDER
 
         if filename not in GLOBAL_BOTS:
             filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -80,10 +88,14 @@ def make_move():
         traceback.print_exc()
         return jsonify({"valid": False, "error": str(e)})
 
+@chess_bot_bp.route('/get_fen', methods=['POST'])
 def get_fen():
     try:
         data = request.json
         filename = data.get("filename") or "default"
+
+        # Lazy imports
+        from app import create_bot_instance, GLOBAL_BOTS, UPLOAD_FOLDER
 
         if filename not in GLOBAL_BOTS:
             filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -100,18 +112,20 @@ def get_fen():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+@chess_bot_bp.route('/remove_bot', methods=['POST'])
 def remove_bot():
     try:
         data = request.json
         filename = data.get("filename")
         
+        # Lazy imports
+        from app import GLOBAL_BOTS, UPLOAD_FOLDER
+        
         if filename in GLOBAL_BOTS:
             del GLOBAL_BOTS[filename]
-            
             filepath = os.path.join(UPLOAD_FOLDER, filename)
             if os.path.exists(filepath):
                 os.remove(filepath)
-                
             return jsonify({"success": True, "message": "Bot removed successfully"})
         
         return jsonify({"success": False, "error": "Bot not found"}), 404
@@ -121,13 +135,13 @@ def remove_bot():
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
+@chess_bot_bp.route('/run_tournament', methods=['GET'])
 def run_tournament():
     try:
         uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
         sys.path.append(uploads_dir)
         
         tournament_path = os.path.join(uploads_dir, "tournament.py")
-        
         if not os.path.exists(tournament_path):
             return jsonify({"error": f"Tournament file not found at {tournament_path}"}), 404
         
@@ -142,6 +156,9 @@ def run_tournament():
             error_msg = f"Missing required files: {', '.join(missing_files)}"
             return jsonify({"error": error_msg}), 404
         
+        # Lazy import capture_output from app
+        from app import capture_output
+        
         with capture_output() as output:
             try:
                 spec = importlib.util.spec_from_file_location("tournament", tournament_path)
@@ -149,10 +166,8 @@ def run_tournament():
                 spec.loader.exec_module(tournament_module)
             except Exception as e:
                 raise
-            
             tournament_logs = output.getvalue()
             sys.path.remove(uploads_dir)
-            
             return jsonify({
                 "output": tournament_logs,
                 "status": "completed",

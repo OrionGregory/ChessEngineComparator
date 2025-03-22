@@ -1,9 +1,11 @@
-from flask import request, jsonify
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app import get_db_connection, create_bot_instance, UPLOAD_FOLDER
 from werkzeug.utils import secure_filename
 import os
 
+bot_commands_bp = Blueprint('bot_commands', __name__)
+
+@bot_commands_bp.route('/run_bot_command', methods=['POST'])
 @jwt_required()
 def run_bot_command():
     user_id = get_jwt_identity()
@@ -11,6 +13,9 @@ def run_bot_command():
     file_id = data.get("file_id")
     if not file_id:
         return jsonify({"error": "file_id is required"}), 400
+
+    # Lazy imports to avoid circular dependency
+    from app import get_db_connection, create_bot_instance
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -22,13 +27,13 @@ def run_bot_command():
         file_record = cursor.fetchone()
         if not file_record:
             return jsonify({"error": "File not found or access denied"}), 404
-        
+
         filepath = file_record['filepath']
         bot_instance = create_bot_instance(filepath)
-        
+
         move = bot_instance.select_move()
         bot_instance.board.push(move)
-        
+
         return jsonify({
             "message": "Bot command executed successfully",
             "move": str(move),
@@ -41,21 +46,25 @@ def run_bot_command():
         cursor.close()
         conn.close()
 
+@bot_commands_bp.route('/upload_file', methods=['POST'])
 @jwt_required()
 def upload_file():
     user_id = get_jwt_identity()
-    
+
+    # Lazy import of UPLOAD_FOLDER and get_db_connection
+    from app import get_db_connection, UPLOAD_FOLDER
+
     if 'file' not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
-    
+
     file = request.files['file']
-    
+
     if file.filename == "":
         return jsonify({"error": "No selected file"}), 400
-    
+
     filename = secure_filename(file.filename)
     filepath = os.path.join(UPLOAD_FOLDER, filename)
-    
+
     try:
         file.save(filepath)
     except Exception as e:
@@ -79,9 +88,12 @@ def upload_file():
 
     return jsonify({"message": "File uploaded successfully", "file_id": file_id}), 201
 
+@bot_commands_bp.route('/my_files', methods=['GET'])
 @jwt_required()
 def my_files():
     user_id = get_jwt_identity()
+    from app import get_db_connection
+
     conn = get_db_connection()
     cursor = conn.cursor()
     try:

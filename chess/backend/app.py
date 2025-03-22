@@ -2,20 +2,13 @@ import datetime
 import os
 import chess
 from stockfish import Stockfish
-from flask import Flask, request, jsonify, url_for, session, redirect
+from flask import Flask
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-from werkzeug.utils import secure_filename
-import importlib.util
-import sys
-import traceback
-from io import StringIO
-from contextlib import contextmanager
-import psycopg2
-from psycopg2.extras import RealDictCursor
+from flask_jwt_extended import JWTManager
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
+from contextlib import contextmanager  # Add this import
 
 load_dotenv()
 
@@ -49,25 +42,16 @@ google = oauth.register(
     client_kwargs={'scope': 'openid email profile'},
 )
 
-# Import views
-from views.google_oauth import google_login, google_authorize
-from views.bot_commands import run_bot_command, upload_file, my_files
-from views.user_auth import register, login
-from views.chess_bot import upload, make_move, get_fen, remove_bot, run_tournament
+# Register blueprints
+from views.google_oauth import google_oauth_bp
+from views.bot_commands import bot_commands_bp
+from views.user_auth import user_auth_bp
+from views.chess_bot import chess_bot_bp
 
-# Register routes
-app.add_url_rule('/login/google', view_func=google_login)
-app.add_url_rule('/login/google/callback', view_func=google_authorize)
-app.add_url_rule('/run_bot_command', view_func=run_bot_command, methods=['POST'])
-app.add_url_rule('/upload_file', view_func=upload_file, methods=['POST'])
-app.add_url_rule('/my_files', view_func=my_files, methods=['GET'])
-app.add_url_rule('/register', view_func=register, methods=['POST'])
-app.add_url_rule('/login', view_func=login, methods=['POST'])
-app.add_url_rule('/upload', view_func=upload, methods=['POST'])
-app.add_url_rule('/make_move', view_func=make_move, methods=['POST'])
-app.add_url_rule('/get_fen', view_func=get_fen, methods=['POST'])
-app.add_url_rule('/remove_bot', view_func=remove_bot, methods=['POST'])
-app.add_url_rule('/run_tournament', view_func=run_tournament, methods=['GET'])
+app.register_blueprint(google_oauth_bp)
+app.register_blueprint(bot_commands_bp)
+app.register_blueprint(user_auth_bp)
+app.register_blueprint(chess_bot_bp)
 
 def get_stockfish_path():
     current_dir = os.getcwd()
