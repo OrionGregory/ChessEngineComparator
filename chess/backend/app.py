@@ -13,6 +13,10 @@ from werkzeug.utils import secure_filename
 from flask_login import login_required
 from extensions import db, login_manager
 from auth import auth_bp
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 app.config.from_object('config.Config')
@@ -33,15 +37,23 @@ login_manager.init_app(app)
 # Register the auth blueprint
 app.register_blueprint(auth_bp)
 
-UPLOAD_FOLDER = "uploads"
+# Use absolute path for uploads folder
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+print(f"Upload folder path: {UPLOAD_FOLDER}")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 GLOBAL_BOTS = {}
 
 def get_stockfish_path():
-    current_dir = os.getcwd()
-    windows_path = r"D:\Cs495\ChessEngineComparator\chess\backend\stockfish\stockfish-windows-x86-64-avx2.exe"
-    return windows_path
+    # Try to get the Stockfish path from environment variable
+    stockfish_path = os.environ.get('STOCKFISH_PATH')
+    if stockfish_path and os.path.exists(stockfish_path):
+        return stockfish_path
+        
+    # Fallback to default path if environment variable is not set
+    default_path = r"C:\ChessEngineComparator\chess\backend\stockfish\stockfish-windows-x86-64-avx2.exe"
+    print(f"STOCKFISH_PATH environment variable not set or invalid. Using default path: {default_path}")
+    return default_path
 
 STOCKFISH_PATH = get_stockfish_path()
 
@@ -104,18 +116,34 @@ def capture_output():
 @login_required
 def upload():
     try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file part in the request"}), 400
+            
         file = request.files["file"]
-        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        
+        if file.filename == "":
+            return jsonify({"error": "No file selected"}), 400
+            
+        # Secure the filename to prevent directory traversal attacks
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        
+        print(f"Saving file to: {filepath}")
         file.save(filepath)
+        
+        if not os.path.exists(filepath):
+            return jsonify({"error": "File failed to save"}), 500
+            
+        print(f"File saved successfully at {filepath}")
 
         # Create bot instance
         bot_instance = create_bot_instance(filepath)
         
         # Store bot instance in global dictionary
-        GLOBAL_BOTS[file.filename] = bot_instance
+        GLOBAL_BOTS[filename] = bot_instance
 
         return jsonify({
-            "filename": file.filename, 
+            "filename": filename, 
             "initial_fen": bot_instance.board.fen()
         }), 200
 
