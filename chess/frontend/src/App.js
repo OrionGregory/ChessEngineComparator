@@ -65,7 +65,8 @@ function App() {
 
     try {
       const response = await axios.post("https://localhost:5000/upload", formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true,
       });
 
       if (response.data.filename) {
@@ -177,7 +178,7 @@ function App() {
           >
             Logout
           </Button>
-          <BotUpload handleFileChange={handleFileChange} uploadFile={uploadFile} file={file} />
+          <BotUpload handleFileChange={handleFileChange} uploadFile={uploadFile} file={file} isAuthenticated={isAuthenticated}/>
           <ChessGame game={game} onDrop={onDrop} removeBot={removeBot} />
           <Tournament runTournament={runTournament} isLoading={isLoading} tournamentLogs={tournamentLogs} />
         </Box>
