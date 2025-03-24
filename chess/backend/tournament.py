@@ -1,5 +1,6 @@
-# tournament.py
 import os
+import chess
+# Remove hardcoded bot imports
 from game_duel import game_duel
 from dynamic_bot_loader import load_uploaded_bots
 from tournament_log import TournamentLog  # Import TournamentLog
@@ -12,59 +13,48 @@ t_log.log("Tournament started.")
 current_dir = os.path.dirname(__file__)
 bots_directory = os.path.abspath(os.path.join(current_dir, "uploads"))
 
-# Load available bots dynamically.
-available_bots = load_uploaded_bots(bots_directory)
-if not available_bots:
-    print("No bots found in the uploads directory.")
-    t_log.log("No bots found in the uploads directory. Exiting.")
-    t_log.close()
-    exit(1)
+# Load all bots dynamically from the uploads directory
+loaded_bots = load_uploaded_bots(bots_directory)
+t_log.log(f"Loaded {len(loaded_bots)} bots from {bots_directory}")
 
-# Display the available bots to the user.
-print("Available bots:")
-bot_list = list(available_bots.items())
-for idx, (bot_name, bot_class) in enumerate(bot_list, start=1):
-    print(f"{idx}. {bot_name}")
+# Function to create instances of all available bots
+def get_tournament_bots():
+    bot_instances = []
+    default_skill_level = 3  # Default skill level for bots that don't specify one
+    
+    for bot_name, bot_class in loaded_bots.items():
+        try:
+            # Try to instantiate with skill_level parameter
+            if hasattr(bot_class.__init__, '__code__') and 'skill_level' in bot_class.__init__.__code__.co_varnames:
+                bot_instance = bot_class(skill_level=default_skill_level)
+            else:
+                # If the bot doesn't accept skill_level parameter, instantiate without it
+                bot_instance = bot_class()
+                # Set skill_level attribute if it doesn't exist
+                if not hasattr(bot_instance, 'skill_level'):
+                    bot_instance.skill_level = default_skill_level
+            
+            bot_instances.append(bot_instance)
+            t_log.log(f"Added bot: {bot_name} with skill level {bot_instance.skill_level}")
+        except Exception as e:
+            t_log.log(f"Error instantiating bot {bot_name}: {e}")
+            continue
+    
+    return bot_instances
 
-# Let the user select bots by entering comma-separated indices.
-selected_indices_str = input("Enter comma-separated indices of bots to include in the tournament: ")
-try:
-    selected_indices = [int(x.strip()) for x in selected_indices_str.split(",")]
-except ValueError:
-    print("Invalid input format. Please enter comma-separated numbers.")
-    t_log.log("Invalid input format for bot selection. Exiting.")
-    t_log.close()
-    exit(1)
+# Replace any existing bot selection logic with this
+tournament_bots = get_tournament_bots()
 
-# Build the dictionary of selected bots.
-selected_bots = {}
-for index in selected_indices:
-    if 1 <= index <= len(bot_list):
-        bot_name, bot_class = bot_list[index-1]
-        selected_bots[bot_name] = bot_class
-    else:
-        print(f"Index {index} is out of range. Skipping.")
-        t_log.log(f"Index {index} is out of range. Skipping.")
-
-if not selected_bots:
-    print("No valid bots selected. Exiting.")
-    t_log.log("No valid bots selected. Exiting.")
-    t_log.close()
-    exit(1)
-
-# Record the selected participants.
-for bot_name, bot_class in selected_bots.items():
-    t_log.add_participant(bot_class)
-t_log.log("Participants added: " + ", ".join(t_log.participants))
+# The rest of your tournament logic using tournament_bots
 
 # For demonstration purposes, assign a default skill level to each selected bot.
 entrants = []
 default_skill_level = 1
-for bot_name, bot_class in selected_bots.items():
+for bot in tournament_bots:
     entrant = {
-        'name': f"{bot_name} (skill={default_skill_level})",
-        'bot_class': bot_class,
-        'skill_level': default_skill_level,
+        'name': f"{bot.__class__.__name__} (skill={bot.skill_level})",
+        'bot_class': bot.__class__,
+        'skill_level': bot.skill_level,
         'points': 0
     }
     entrants.append(entrant)
