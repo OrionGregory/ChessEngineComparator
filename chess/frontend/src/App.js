@@ -121,10 +121,16 @@ function App() {
       alert("No bot is currently loaded");
       return;
     }
-
+  
+    console.log("Attempting to remove bot:", game.filename); // Debugging log
+  
     try {
-      const response = await axios.post("https://localhost:5000/remove_bot", { filename: game.filename });
-
+      const response = await axios.post(
+        "https://localhost:5000/remove_bot",
+        { filename: game.filename },
+        { withCredentials: true } // Ensure credentials are sent
+      );
+  
       if (response.data.success) {
         setGame({
           position: 'start',
@@ -133,6 +139,8 @@ function App() {
           result: null
         });
         alert("Bot removed successfully");
+      } else {
+        alert("Failed to remove bot: " + response.data.error);
       }
     } catch (error) {
       alert("Failed to remove bot: " + (error.response?.data?.error || error.message));
@@ -144,7 +152,9 @@ function App() {
     setTournamentLogs('Starting tournament...\n');
 
     try {
-      const response = await axios.get("https://localhost:5000/run_tournament");
+      const response = await axios.get("https://localhost:5000/run_tournament", {
+        withCredentials: true, // Ensure credentials are sent
+      });
       const data = response.data;
 
       setTournamentLogs(`=== Tournament Execution ===\n${data.output}\nTournament completed successfully\n`);

@@ -107,12 +107,14 @@ def upload():
         file = request.files["file"]
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
+        print(f"Uploaded file saved to: {filepath}")  # Debugging log
 
         # Create bot instance
         bot_instance = create_bot_instance(filepath)
         
         # Store bot instance in global dictionary
         GLOBAL_BOTS[file.filename] = bot_instance
+        print(f"Bot added to GLOBAL_BOTS: {file.filename}")  # Debugging log
 
         return jsonify({
             "filename": file.filename, 
@@ -214,22 +216,27 @@ def remove_bot():
     try:
         data = request.json
         filename = data.get("filename")
-        
+        print(f"Attempting to remove bot: {filename}")  # Debugging log
+
         if filename in GLOBAL_BOTS:
             del GLOBAL_BOTS[filename]
+            print(f"Removed bot from GLOBAL_BOTS: {filename}")  # Debugging log
             
             filepath = os.path.join(UPLOAD_FOLDER, filename)
             if os.path.exists(filepath):
                 os.remove(filepath)
+                print(f"Removed bot file from uploads: {filepath}")  # Debugging log
                 
             return jsonify({"success": True, "message": "Bot removed successfully"})
         
+        print(f"Bot not found in GLOBAL_BOTS: {filename}")  # Debugging log
         return jsonify({"success": False, "error": "Bot not found"}), 404
         
     except Exception as e:
         print(f"Remove bot error: {e}")
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route("/run_tournament", methods=["GET"])
 @login_required
