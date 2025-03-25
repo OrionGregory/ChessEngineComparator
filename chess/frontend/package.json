@@ -17,7 +17,7 @@
     "react-scripts": "5.0.1"
   },
  "scripts": {
-    "start": "set HTTPS=true&&set SSL_CRT_FILE=../backend/cert.pem&&set SSL_KEY_FILE=../backend/key.pem&&react-scripts start",
+    "start": "export HTTPS=true && export SSL_CRT_FILE=/app/cert.pem && export SSL_KEY_FILE=/app/key.pem && react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

@@ -95,3 +95,37 @@ curl -X POST http://localhost:5000/run_bot_command \
   -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
   -d '{"file_id": YOUR_FILE_ID}'
 ```
+
+
+## Docker 
+
+```bash
+ChessEngineComparator/
+├── chess/
+│   ├── backend/
+│   │   ├── app.py
+│   │   ├── auth.py
+│   │   ├── config.py
+│   │   ├── Dockerfile
+│   │   ├── extensions.py
+│   │   ├── models.py
+│   │   ├── uploads/
+│   │   │   └── Test.py
+│   │   └── ...
+│   ├── frontend/
+│   │   ├── src/
+│   │   │   ├── App.js
+│   │   │   ├── components/
+│   │   │   │   └── BotUpload.js
+│   │   │   └── ...
+│   │   ├── Dockerfile
+│   │   └── ...
+├── stockfish/
+│   ├── stockfish-ubuntu-x86-64-avx2
+├── cert.pem
+├── key.pem
+├── requirements.txt
+├── docker-compose.yml
+├── entrypoint.sh
+└── .env
+```

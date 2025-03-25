@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: chess/backend/Dockerfile
+    volumes:
+      - ./chess/backend:/app
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_APP: app.py
+      FLASK_DEBUG: 1
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      REDIRECT_URI: ${REDIRECT_URI}
+
+  frontend:
+    build:
+      context: ./chess/frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./chess/backend/cert.pem:/app/cert.pem
+      - ./chess/backend/key.pem:/app/key.pem
+    environment:
+      - HTTPS=true
+      - SSL_CRT_FILE=/app/cert.pem
+      - SSL_KEY_FILE=/app/key.pem
+    ports:
+      - "3000:3000"

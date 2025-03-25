@@ -13,6 +13,7 @@ from werkzeug.utils import secure_filename
 from flask_login import login_required
 from extensions import db, login_manager
 from auth import auth_bp
+from flask_migrate import Migrate
 
 app = Flask(__name__)
 app.config.from_object('config.Config')
@@ -29,6 +30,7 @@ CORS(app, supports_credentials=True,
 # Initialize extensions
 db.init_app(app)
 login_manager.init_app(app)
+migrate = Migrate(app, db)  # Initialize Flask-Migrate
 
 # Register the auth blueprint
 app.register_blueprint(auth_bp)
@@ -39,9 +41,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 GLOBAL_BOTS = {}
 
 def get_stockfish_path():
-    current_dir = os.getcwd()
-    windows_path = r"D:\Cs495\ChessEngineComparator\chess\backend\stockfish\stockfish-windows-x86-64-avx2.exe"
-    return windows_path
+    docker_path = "/app/stockfish/stockfish-ubuntu-x86-64-avx2"
+    return docker_path
 
 STOCKFISH_PATH = get_stockfish_path()
 
@@ -335,4 +336,4 @@ if __name__ == "__main__":
     else:
         print("No default bot found at uploads/chess_game.py")
 
-    app.run(debug=True, ssl_context=('cert.pem', 'key.pem'))
+    app.run(host="0.0.0.0", port=5000, debug=True, ssl_context=('cert.pem', 'key.pem'))
