@@ -1,17 +1,47 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Roboto', sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+}
+
 .App {
-    text-align: center;
-    padding: 20px;
-  }
-  
-  h1 {
-    font-size: 2em;
-    margin-bottom: 20px;
-  }
-  
-  button {
-    margin-top: 10px;
-    padding: 10px 20px;
-    font-size: 1em;
-    cursor: pointer;
-  }
-  
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 64px);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  padding-top: 64px; /* Account for navbar height */
+}
+
+h1 {
+  font-size: 2em;
+  margin-bottom: 20px;
+}
+
+button {
+  margin-top: 10px;
+  padding: 10px 20px;
+  font-size: 1em;
+  cursor: pointer;
+}
+
+/* Clean navbar styles - Override all defaults */
+.MuiAppBar-root {
+  width: 100vw !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.MuiToolbar-root {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}

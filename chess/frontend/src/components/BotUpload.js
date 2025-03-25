@@ -1,31 +1,41 @@
 import React from 'react';
-import { Box, Paper, Button, Input, Typography } from '@mui/material';
-import { CloudUpload } from '@mui/icons-material';
+import { Button, Box, Typography, Paper } from '@mui/material';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 
 const BotUpload = ({ handleFileChange, uploadFile, file, isAuthenticated }) => {
   return (
-    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-        <Input type="file" onChange={handleFileChange} accept=".py" sx={{ display: 'none' }} id="bot-upload" />
-        <label htmlFor="bot-upload">
-          <Button variant="contained" component="span" startIcon={<CloudUpload />} disabled={!isAuthenticated}>
-            Choose Bot File
+    <Paper elevation={3} sx={{ p: 3, mt: 2, mb: 4, width: '100%', maxWidth: 600 }}>
+      <Typography variant="h5" gutterBottom>Upload Chess Bot</Typography>
+      
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button
+            variant="contained"
+            component="label"
+            startIcon={<UploadFileIcon />}
+          >
+            Select File
+            <input
+              type="file"
+              accept=".py"
+              hidden
+              onChange={handleFileChange}
+            />
           </Button>
-        </label>
+          <Typography variant="body1">
+            {file ? file.name : "No file selected"}
+          </Typography>
+        </Box>
+        
         <Button
           variant="contained"
           color="primary"
           onClick={uploadFile}
-          disabled={!file || !isAuthenticated}
+          disabled={!file}
         >
           Upload Bot
         </Button>
       </Box>
-      {!isAuthenticated && (
-        <Typography color="error" variant="body2" sx={{ mt: 2 }}>
-          You must be logged in to upload a bot.
-        </Typography>
-      )}
     </Paper>
   );
 };

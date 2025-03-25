@@ -1,76 +1,86 @@
-import React, { useEffect, useState } from "react";
-import { Button, Container, Typography, Box, CircularProgress, Paper } from "@mui/material";
-import GoogleIcon from '@mui/icons-material/Google';
-import LogoutIcon from '@mui/icons-material/Logout';
-import axios from "axios";
+import React, { useState } from 'react';
+import { Container, Box, Typography, TextField, Button, Paper, Link } from '@mui/material';
+import LoginIcon from '@mui/icons-material/Login';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 const Auth = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userData, setUserData] = useState(null);
-
-  useEffect(() => {
-    const checkLoginStatus = async () => {
-      try {
-        const response = await axios.get("https://localhost:5000/auth/status", { withCredentials: true });
-
-        if (response.status === 200 && response.data.authenticated) {
-          setIsAuthenticated(true);
-          setUserData(response.data.user);
-        }
-      } catch (error) {
-        setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkLoginStatus();
-  }, []);
-
-  const handleGoogleAuth = () => {
-    window.location.href = "https://localhost:5000/auth/login";
+  const [isLogin, setIsLogin] = useState(true);
+  
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
   };
-
-  const handleLogout = async () => {
-    try {
-      await axios.get("https://localhost:5000/auth/logout", { withCredentials: true });
-      setIsAuthenticated(false);
-      setUserData(null);
-      window.location.reload();
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <Container maxWidth="sm">
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
-
-  return isAuthenticated ? (
+  
+  return (
     <Container maxWidth="sm">
-      <Paper elevation={3} sx={{ mt: 8, p: 4, textAlign: 'center', borderRadius: 2 }}>
-        <Typography variant="h5" gutterBottom>Welcome, {userData?.name}!</Typography>
-        <Typography variant="body1">Username: {userData?.username}</Typography>
-        <Typography variant="body1">Email: {userData?.email}</Typography>
-        <Button variant="contained" color="secondary" onClick={handleLogout} startIcon={<LogoutIcon />} sx={{ mt: 3 }}>
-          Logout
-        </Button>
-      </Paper>
-    </Container>
-  ) : (
-    <Container maxWidth="sm">
-      <Box display="flex" flexDirection="column" alignItems="center" minHeight="100vh" justifyContent="center">
-        <Typography variant="h4" gutterBottom>Sign in to continue</Typography>
-        <Button variant="contained" color="primary" onClick={handleGoogleAuth} startIcon={<GoogleIcon />} size="large">
-          Sign in with Google
-        </Button>
+      <Box sx={{ 
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 'calc(100vh - 84px)' 
+      }}>
+        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+          <Typography variant="h4" align="center" gutterBottom>
+            {isLogin ? 'Login' : 'Register'}
+          </Typography>
+          
+          <Box component="form" noValidate sx={{ mt: 2 }}>
+            {!isLogin && (
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                id="name"
+                label="Full Name"
+                name="name"
+                autoComplete="name"
+                autoFocus={!isLogin}
+              />
+            )}
+            
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="username"
+              label="Username"
+              name="username"
+              autoComplete="username"
+              autoFocus={isLogin}
+            />
+            
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="Password"
+              type="password"
+              id="password"
+              autoComplete={isLogin ? "current-password" : "new-password"}
+            />
+            
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              sx={{ mt: 3, mb: 2 }}
+              startIcon={isLogin ? <LoginIcon /> : <PersonAddIcon />}
+            >
+              {isLogin ? 'Sign In' : 'Sign Up'}
+            </Button>
+            
+            <Box sx={{ textAlign: 'center' }}>
+              <Link
+                component="button"
+                variant="body2"
+                onClick={toggleMode}
+              >
+                {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+              </Link>
+            </Box>
+          </Box>
+        </Paper>
       </Box>
     </Container>
   );
