@@ -62,13 +62,33 @@ def callback():
             session["user_id"] = user.id
             return redirect("https://localhost:3000/home")
         else:
-            params = urllib.parse.urlencode({
-                'email': email,
-                'name': name,
-                'google_id': google_id
-            })
-            return redirect(f"https://localhost:3000/signup?{params}")
+            # This is redirecting to a signup page, but we need to handle this better
+            # Create the user automatically instead of redirecting to signup
+            username = email.split('@')[0]  # Use part of email as default username
+            
+            # Check if username already exists, add random suffix if needed
+            base_username = username
+            count = 1
+            while User.query.filter_by(username=username).first():
+                username = f"{base_username}{count}"
+                count += 1
+                
+            # Create the new user
+            new_user = User(
+                google_id=google_id,
+                email=email,
+                name=name,
+                username=username
+            )
+            db.session.add(new_user)
+            db.session.commit()
+            
+            # Log in the new user
+            login_user(new_user, remember=True)
+            session["user_id"] = new_user.id
+            return redirect("https://localhost:3000/home")
     except Exception as e:
+        print(f"OAuth callback error: {str(e)}")
         return redirect("https://localhost:3000/error")
 
 
