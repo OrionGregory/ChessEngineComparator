@@ -99,6 +99,19 @@ curl -X POST http://localhost:5000/run_bot_command \
 
 ## Docker 
 
+Make a docker account and verify your email.  
+
+Make sure you copy and paste your cert.pem and key.pem into your root folder.   
+
+Docker requires linux path for stockfish. Have this stockfish folder in your root folder. 
+
+Run in git bash terminal: 
+```bash
+chmod +x ./chess/backend/entrypoint.sh
+dos2unix chess/backend/entrypoint.sh
+```
+
+
 ```bash
 ChessEngineComparator/
 ├── chess/
