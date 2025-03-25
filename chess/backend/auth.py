@@ -6,6 +6,7 @@ import urllib.parse
 from models import User
 from extensions import db, login_manager
 from config import Config
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Create Blueprint
 auth_bp = Blueprint('auth', __name__)
@@ -17,7 +18,7 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 @auth_bp.route("/auth/login")
-def login():
+def oauth_login():
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
         "client_secret.json", 
         scopes=["openid", "email", "profile"]
@@ -62,18 +63,13 @@ def callback():
             session["user_id"] = user.id
             return redirect("https://localhost:3000/home")
         else:
-            # This is redirecting to a signup page, but we need to handle this better
-            # Create the user automatically instead of redirecting to signup
+            # Automatically create the user if not found
             username = email.split('@')[0]  # Use part of email as default username
-            
-            # Check if username already exists, add random suffix if needed
             base_username = username
             count = 1
             while User.query.filter_by(username=username).first():
                 username = f"{base_username}{count}"
                 count += 1
-                
-            # Create the new user
             new_user = User(
                 google_id=google_id,
                 email=email,
@@ -82,8 +78,6 @@ def callback():
             )
             db.session.add(new_user)
             db.session.commit()
-            
-            # Log in the new user
             login_user(new_user, remember=True)
             session["user_id"] = new_user.id
             return redirect("https://localhost:3000/home")
@@ -91,44 +85,15 @@ def callback():
         print(f"OAuth callback error: {str(e)}")
         return redirect("https://localhost:3000/error")
 
-
-@auth_bp.route("/auth/signup", methods=["POST"])
-def signup():
-    try:
-        data = request.json
-        google_id = data["google_id"]
-        email = data["email"]
-        name = data["name"]
-        username = data["username"]
-
-        if User.query.filter_by(username=username).first():
-            return jsonify({"error": "Username already taken"}), 400
-
-        if User.query.filter_by(google_id=google_id).first():
-            return jsonify({"error": "Account already exists"}), 400
-
-        user = User(google_id=google_id, email=email, name=name, username=username)
-        db.session.add(user)
-        db.session.commit()
-
-        login_user(user, remember=True) # Log in the user after signup
-        session["user_id"] = user.id
-        return jsonify({"message": "Signup successful", "redirect_url": "/home"}), 200
-    except Exception as e:
-        return jsonify({"error": "Signup failed", "details": str(e)}), 400
-
 @auth_bp.route("/auth/logout")
 @login_required
-def logout():
+def logout_route():
     try:
         logout_user()
-        session.pop("user_id", None)  # Clear user ID from session
-        response = jsonify({"message": "Logged out successfully"})
-        return response, 200
+        session.pop("user_id", None)
+        return jsonify({"message": "Logged out successfully"}), 200
     except Exception as e:
         return jsonify({"error": "Logout failed"}), 400
-    
-# filepath: d:\Cs495\ChessEngineComparator\chess\backend\auth.py
 
 @auth_bp.route("/auth/status", methods=["GET"])
 def auth_status():
