@@ -48,7 +48,7 @@ def minimax(board, depth, maximizing_player):
             min_eval = min(min_eval, eval)
         return min_eval
 
-class Test(ChessBot):
+class TestChessBot1(ChessBot):
     """
     A chess bot that utilizes Stockfish for move selection.
     """

@@ -10,9 +10,10 @@ import traceback
 from io import StringIO
 from contextlib import contextmanager
 from werkzeug.utils import secure_filename
-from flask_login import login_required
+from flask_login import login_required, current_user
 from extensions import db, login_manager
 from auth import auth_bp
+from models import User
 
 app = Flask(__name__)
 app.config.from_object('config.Config')
@@ -22,8 +23,12 @@ app.config['SESSION_COOKIE_SECURE'] = True  # Ensures cookies are sent over HTTP
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevents JavaScript from accessing cookies
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Restricts cross-site cookie sharing
 
+# Update CORS configuration to explicitly include the update_profile endpoint
 CORS(app, supports_credentials=True,
-     resources={r"/*": {"origins": "https://localhost:3000"}},
+     resources={
+         r"/*": {"origins": "https://localhost:3000"},
+         r"/api/update_profile": {"origins": "https://localhost:3000"}
+     },
      allow_headers=["Content-Type", "Authorization"])
 
 # Initialize extensions
@@ -33,15 +38,39 @@ login_manager.init_app(app)
 # Register the auth blueprint
 app.register_blueprint(auth_bp)
 
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 GLOBAL_BOTS = {}
 
 def get_stockfish_path():
-    current_dir = os.getcwd()
-    windows_path = r"D:\Cs495\ChessEngineComparator\chess\backend\stockfish\stockfish-windows-x86-64-avx2.exe"
-    return windows_path
+    # Get the script directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Platform-specific Stockfish executable names
+    if os.name == 'nt':  # Windows
+        stockfish_exe = "stockfish-windows-x86-64-avx2.exe"
+    else:  # Linux/Mac
+        stockfish_exe = "stockfish"
+    
+    # Try multiple possible locations
+    possible_paths = [
+        os.path.join(script_dir, "stockfish", stockfish_exe),
+        os.path.join(script_dir, "stockfish", "stockfish.exe"),
+        os.path.join(script_dir, "stockfish"),
+        # Add the original hardcoded path as last resort
+        r"D:\Cs495\ChessEngineComparator\chess\backend\stockfish\stockfish-windows-x86-64-avx2.exe"
+    ]
+    
+    # Check each path
+    for path in possible_paths:
+        if os.path.exists(path):
+            print(f"Found Stockfish at: {path}")
+            return path
+    
+    # If we get here, no Stockfish was found
+    print("Warning: Stockfish executable not found. Some functionality may be limited.")
+    return None
 
 STOCKFISH_PATH = get_stockfish_path()
 
@@ -81,8 +110,13 @@ def create_bot_instance(filepath):
         )
 
     try:
-        # Try to instantiate with stockfish_path
-        return chess_bot_class(stockfish_path=STOCKFISH_PATH)
+        # Only pass stockfish_path if it exists
+        if STOCKFISH_PATH and os.path.exists(STOCKFISH_PATH):
+            return chess_bot_class(stockfish_path=STOCKFISH_PATH)
+        else:
+            # Try without stockfish path
+            print(f"Creating bot instance without Stockfish path")
+            return chess_bot_class()
     except TypeError:
         try:
             # Fallback: try to instantiate without parameters
@@ -105,21 +139,45 @@ def capture_output():
 def upload():
     try:
         file = request.files["file"]
-        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        if not file:
+            return jsonify({"error": "No file provided"}), 400
+        
+        # Make sure filename is secure
+        filename = secure_filename(file.filename)
+        
+        # Create an absolute path for the upload folder
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        absolute_upload_path = os.path.join(backend_dir, UPLOAD_FOLDER)
+        os.makedirs(absolute_upload_path, exist_ok=True)
+        
+        # Full path to save the file
+        filepath = os.path.join(absolute_upload_path, filename)
+        
+        # Save the file first
         file.save(filepath)
+        
+        if not os.path.exists(filepath):
+            return jsonify({"error": f"Failed to save file at {filepath}"}), 500
+            
         print(f"Uploaded file saved to: {filepath}")  # Debugging log
 
         # Create bot instance
-        bot_instance = create_bot_instance(filepath)
-        
-        # Store bot instance in global dictionary
-        GLOBAL_BOTS[file.filename] = bot_instance
-        print(f"Bot added to GLOBAL_BOTS: {file.filename}")  # Debugging log
+        try:
+            bot_instance = create_bot_instance(filepath)
+            
+            # Store bot instance in global dictionary
+            GLOBAL_BOTS[filename] = bot_instance
+            print(f"Bot added to GLOBAL_BOTS: {filename}")  # Debugging log
 
-        return jsonify({
-            "filename": file.filename, 
-            "initial_fen": bot_instance.board.fen()
-        }), 200
+            return jsonify({
+                "filename": filename, 
+                "initial_fen": bot_instance.board.fen()
+            }), 200
+        except Exception as e:
+            # If bot creation fails, we'll report the error but NOT delete the file
+            print(f"Bot creation error: {e}")
+            traceback.print_exc()
+            return jsonify({"error": f"File uploaded but bot creation failed: {str(e)}"}), 500
 
     except Exception as e:
         print(f"Upload error: {e}")
@@ -318,6 +376,61 @@ def run_tournament():
             "traceback": traceback.format_exc(),
             "status": "failed"
         }), 500
+
+@app.route("/update_profile", methods=["POST", "OPTIONS"])
+@login_required
+def update_profile():
+    # Handle preflight OPTIONS request
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        return response
+
+    try:
+        print("Received profile update request")
+        data = request.json
+        
+        if not data:
+            print("Error: No JSON data in request")
+            return jsonify({"success": False, "error": "No data provided"}), 400
+            
+        new_username = data.get("username")
+        print(f"Requested username update to: {new_username}")
+        
+        if not new_username:
+            print("Error: Username is empty")
+            return jsonify({"success": False, "error": "Username cannot be empty"}), 400
+            
+        # Check if username already exists for a different user
+        existing_user = User.query.filter(
+            User.username == new_username, 
+            User.id != current_user.id
+        ).first()
+        
+        if existing_user:
+            print(f"Error: Username '{new_username}' is already taken")
+            return jsonify({"success": False, "error": "Username already taken"}), 400
+            
+        # Update the user's username
+        try:
+            user = User.query.get(current_user.id)
+            old_username = user.username
+            user.username = new_username
+            db.session.commit()
+            print(f"Username updated from '{old_username}' to '{new_username}'")
+            
+            return jsonify({
+                "success": True,
+                "message": "Profile updated successfully"
+            })
+        except Exception as db_error:
+            db.session.rollback()
+            print(f"Database error: {db_error}")
+            return jsonify({"success": False, "error": f"Database error: {str(db_error)}"}), 500
+            
+    except Exception as e:
+        print(f"Profile update error: {str(e)}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == "__main__":
     if not os.path.exists(STOCKFISH_PATH):
