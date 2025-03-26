@@ -41,7 +41,7 @@ function App() {
     const checkAuthentication = async () => {
       try {
         console.log("Checking authentication status...");
-        const response = await axios.get("https://localhost:5000/auth/status", { withCredentials: true });
+        const response = await axios.get("/api/auth/status", { withCredentials: true });
 
         console.log("Auth response:", response.data);
         if (response.status === 200 && response.data.authenticated) {
@@ -62,7 +62,7 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      await axios.get("https://localhost:5000/auth/logout", { withCredentials: true });
+      await axios.get("/api/auth/logout", { withCredentials: true });
       setIsAuthenticated(false);
       setUserData(null);
       window.location.reload();
@@ -85,7 +85,7 @@ function App() {
     formData.append("file", file);
 
     try {
-      const response = await axios.post("https://localhost:5000/upload", formData, {
+      const response = await axios.post("/api/upload", formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         withCredentials: true,
       });
@@ -105,7 +105,7 @@ function App() {
     setTournamentLogs('Starting tournament...\n');
 
     try {
-      const response = await axios.get("https://localhost:5000/run_tournament", {
+      const response = await axios.get("/api/run_tournament", {
         withCredentials: true, // Ensure credentials are sent
       });
       const data = response.data;

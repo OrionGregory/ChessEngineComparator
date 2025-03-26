@@ -76,7 +76,7 @@ const TournamentHistory = () => {
     try {
       addDebugInfo('Testing API connection...');
       // Add cache busting parameter to avoid cached responses
-      const response = await axios.get('https://localhost:5000/tournament_history', {
+      const response = await axios.get('/api/tournament_history', {
         withCredentials: true,
         params: { _: Date.now() } // Cache busting
       });
@@ -100,7 +100,7 @@ const TournamentHistory = () => {
       setLoading(true);
       
       // Add cache busting to prevent cached responses
-      const response = await axios.get('https://localhost:5000/tournament_history', {
+      const response = await axios.get('/api/tournament_history', {
         withCredentials: true,
         params: { _: Date.now() },
         headers: forceRefresh ? {
@@ -161,7 +161,7 @@ const TournamentHistory = () => {
       setLoading(true);
       addDebugInfo(`Fetching log content from /tournament_log/${tournamentId}`);
       
-      const response = await axios.get(`https://localhost:5000/tournament_log/${tournamentId}`, {
+      const response = await axios.get(`/api/tournament_log/${tournamentId}`, {
         withCredentials: true,
         params: { _: Date.now() } // Cache busting
       });

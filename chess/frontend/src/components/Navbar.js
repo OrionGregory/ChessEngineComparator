@@ -43,7 +43,7 @@ const ProfileEditModal = ({ open, handleClose, userData }) => {
 
     try {
       const response = await axios.post(
-        'https://localhost:5000/update_profile',
+        '/api/update_profile',
         { username },
         { withCredentials: true }
       );

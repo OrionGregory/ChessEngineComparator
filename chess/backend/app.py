@@ -23,11 +23,10 @@ app.config['SESSION_COOKIE_SECURE'] = True  # Ensures cookies are sent over HTTP
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevents JavaScript from accessing cookies
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Restricts cross-site cookie sharing
 
-# Update CORS configuration to explicitly include the update_profile endpoint
+# Update CORS configuration
 CORS(app, supports_credentials=True,
      resources={
-         r"/*": {"origins": "https://localhost:3000"},
-         r"/api/update_profile": {"origins": "https://localhost:3000"}
+         r"/*": {"origins": ["https://localhost:3000"]},
      },
      allow_headers=["Content-Type", "Authorization"])
 
@@ -448,4 +447,4 @@ if __name__ == "__main__":
     else:
         print("No default bot found at uploads/chess_game.py")
 
-    app.run(debug=True, ssl_context=('cert.pem', 'key.pem'))
+    app.run(host='0.0.0.0', port=5000, ssl_context=('cert.pem', 'key.pem'), debug=True)

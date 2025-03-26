@@ -5,7 +5,7 @@ import GoogleIcon from '@mui/icons-material/Google';
 const Auth = () => {
   const handleGoogleLogin = () => {
     // Redirect to the backend OAuth endpoint
-    window.location.href = "https://localhost:5000/auth/login";
+    window.location.href = "/api/auth/login";
   };
   
   return (

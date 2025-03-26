@@ -1,0 +1,33 @@
+services:
+  backend:
+    build:
+      context: . # Set the context to the root directory
+      dockerfile: ./chess/backend/Dockerfile
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./chess/backend/uploads:/app/uploads
+      - ./cert.pem:/app/cert.pem
+      - ./key.pem:/app/key.pem
+    env_file:
+      - ./.env
+    networks:
+      - app-network
+
+  frontend:
+    build: ./chess/frontend
+    restart: always
+    ports:
+      - "3000:443"
+    volumes:
+      - ./cert.pem:/etc/nginx/ssl/cert.pem
+      - ./key.pem:/etc/nginx/ssl/key.pem
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
