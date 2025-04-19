@@ -30,7 +30,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             
         return user
         
-    def get_app(self, request, provider):
+    def get_app(self, request, provider, client_id=None):
         """Get the SocialApp for the given provider"""
         # If provider is a string, use it as-is
         if isinstance(provider, str):
