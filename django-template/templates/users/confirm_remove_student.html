@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="confirm-remove-container">
+    <div class="breadcrumbs">
+        <a href="{% url 'student_detail' student.id %}">← Back to Student Details</a>
+    </div>
+    
+    <div class="confirm-card">
+        <h1>Confirm Student Removal</h1>
+        
+        <div class="warning-box">
+            <div class="warning-icon">⚠️</div>
+            <div class="warning-text">
+                <p><strong>Warning:</strong> You are about to permanently delete student account {{ student.email }}.</p>
+                <p>This will delete all data associated with this student, including:</p>
+                <ul>
+                    <li>All chess bots created by this student</li>
+                    <li>All tournament participation history</li>
+                    <li>All class enrollments</li>
+                </ul>
+                <p>This action cannot be undone.</p>
+            </div>
+        </div>
+        
+        <div class="confirmation-actions">
+            <a href="{% url 'student_detail' student.id %}" class="btn btn-secondary">Cancel</a>
+            <form method="POST" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Confirm Removal</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .confirm-remove-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .breadcrumbs {
+        margin-bottom: 20px;
+    }
+    
+    .breadcrumbs a {
+        color: #4285F4;
+        text-decoration: none;
+    }
+    
+    .confirm-card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 30px;
+    }
+    
+    .warning-box {
+        background-color: #fff3cd;
+        border-left: 5px solid #ffc107;
+        padding: 20px;
+        margin: 20px 0;
+        display: flex;
+        border-radius: 4px;
+    }
+    
+    .warning-icon {
+        font-size: 24px;
+        margin-right: 15px;
+    }
+    
+    .warning-text {
+        flex: 1;
+    }
+    
+    .warning-text ul {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .confirmation-actions {
+        margin-top: 30px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .btn {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        text-decoration: none;
+    }
+    
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+    
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+</style>
+{% endblock %}

@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.urls import reverse
 from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import CustomUser, ChessBot, Tournament, TournamentParticipant, Match, ClassGroup
 from .serializers import (ChessBotSerializer, ChessBotUploadSerializer, StudentSerializer, StudentDetailSerializer,
                          ClassGroupSerializer, ClassGroupDetailSerializer,
@@ -109,7 +109,7 @@ class TokenObtainView(APIView):
 class ChessBotViewSet(viewsets.ModelViewSet):
     """API endpoint for chess bots"""
     serializer_class = ChessBotSerializer
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)  # Added JSONParser
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
@@ -117,8 +117,11 @@ class ChessBotViewSet(viewsets.ModelViewSet):
         Filter bots based on ownership and visibility:
         - User can see all their own bots
         - User can see others' public bots
+        - Teachers can see all bots
         """
         user = self.request.user
+        if user.role == 'teacher':
+            return ChessBot.objects.all()
         return ChessBot.objects.filter(
             Q(owner=user) | Q(visibility='public')
         )
@@ -144,13 +147,77 @@ class ChessBotViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Set owner to current user when creating a bot"""
         serializer.save(owner=self.request.user)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Update a bot with the following restrictions:
+        - Teachers can update any bot
+        - Students can only update their own bots that are in draft status
+        """
+        bot = self.get_object()
+        user = request.user
+        
+        # Check permissions
+        if user.role == 'teacher':
+            # Teachers can update any bot
+            pass
+        elif bot.owner == user:
+            # Students can only update their own bots in draft status
+            if bot.status != 'draft':
+                return Response(
+                    {"error": "You can only edit bots in draft status"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        else:
+            return Response(
+                {"error": "You don't have permission to modify this bot"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        # Get partial=True if it's a PATCH request
+        partial = kwargs.pop('partial', request.method == 'PATCH')
+        
+        serializer = self.get_serializer(bot, data=request.data, partial=partial)
+        if serializer.is_valid():
+            bot = serializer.save()
+            return Response(ChessBotSerializer(bot).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a bot with restrictions:
+        - Teachers can delete any bot
+        - Students can only delete their own bots in draft status
+        """
+        bot = self.get_object()
+        user = request.user
+        
+        # Check permissions
+        if user.role == 'teacher':
+            # Teachers can delete any bot
+            pass
+        elif bot.owner == user:
+            # Students can only delete their own bots in draft status
+            if bot.status != 'draft':
+                return Response(
+                    {"error": "You can only delete bots in draft status"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        else:
+            return Response(
+                {"error": "You don't have permission to delete this bot"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        bot.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
         
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):
         """Activate a bot (only owner can activate)"""
         bot = self.get_object()
         
-        # Check ownership
+        # Check ownership - students can only activate their own bots
         if bot.owner != request.user:
             return Response(
                 {"error": "You don't have permission to activate this bot"},
@@ -172,14 +239,21 @@ class ChessBotViewSet(viewsets.ModelViewSet):
         
     @action(detail=True, methods=['post'])
     def archive(self, request, pk=None):
-        """Archive a bot (only owner can archive)"""
+        """Archive a bot (only owner can archive their own bots)"""
         bot = self.get_object()
         
-        # Check ownership
+        # Check ownership - students can only archive their own bots
         if bot.owner != request.user:
             return Response(
                 {"error": "You don't have permission to archive this bot"},
                 status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if bot is in active state (only active bots can be archived)
+        if bot.status != 'active':
+            return Response(
+                {"error": "Only active bots can be archived"},
+                status=status.HTTP_400_BAD_REQUEST
             )
             
         # Archive the bot
@@ -223,6 +297,18 @@ class StudentViewSet(viewsets.ModelViewSet):
         bots = ChessBot.objects.filter(owner=student)
         serializer = ChessBotSerializer(bots, many=True)
         return Response(serializer.data)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Delete a student (teachers only)"""
+        if request.user.role != 'teacher':
+            return Response(
+                {"error": "Only teachers can remove students"}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        student = self.get_object()
+        student.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ClassGroupViewSet(viewsets.ModelViewSet):
     """API endpoint for managing class groups"""
@@ -468,3 +554,23 @@ class MatchViewSet(viewsets.ModelViewSet):
         response = HttpResponse(match.log_file, content_type='text/plain')
         response['Content-Disposition'] = f'attachment; filename=match_{match.id}_log.txt'
         return response
+
+@login_required
+def confirm_remove_student(request, student_id):
+    """Confirmation page before removing a student"""
+    if request.user.role != 'teacher' or not request.user.is_staff:
+        return redirect('home')
+    
+    try:
+        student = CustomUser.objects.get(id=student_id, role='student')
+    except CustomUser.DoesNotExist:
+        return redirect('teacher_dashboard')
+    
+    if request.method == 'POST':
+        # Actually delete the student
+        student.delete()
+        return redirect('teacher_dashboard')
+    
+    return render(request, 'users/confirm_remove_student.html', {
+        'student': student
+    })

@@ -21,6 +21,9 @@ urlpatterns = [
     # Changed from <uuid:student_id> to <int:student_id>
     path('student/<int:student_id>/', views.student_detail, name='student_detail'),
     
+    # Add new path for student removal confirmation
+    path('student/<int:student_id>/remove/', views.confirm_remove_student, name='confirm_remove_student'),
+    
     # Keep other paths as they are
     path('class/<uuid:class_id>/', views.class_detail, name='class_detail'),
     path('tournament/<uuid:tournament_id>/', views.tournament_detail, name='tournament_detail'),

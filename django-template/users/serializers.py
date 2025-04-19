@@ -13,7 +13,7 @@ class ChessBotSerializer(serializers.ModelSerializer):
             'updated_at', 'visibility', 'status', 'version',
             'owner_email', 'file_name'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'owner_email', 'file_name']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'owner_email', 'file_name', 'file_path']
     
     def get_owner_email(self, obj):
         return obj.owner.email
@@ -23,12 +23,13 @@ class ChessBotSerializer(serializers.ModelSerializer):
         
 class ChessBotUploadSerializer(serializers.ModelSerializer):
     file_path = serializers.FileField(
-        validators=[validate_file_size, validate_file_extension]
+        validators=[validate_file_size, validate_file_extension],
+        required=False  # Make it optional for updates
     )
     
     class Meta:
         model = ChessBot
-        fields = ['name', 'description', 'file_path', 'visibility']
+        fields = ['name', 'description', 'file_path', 'visibility', 'status']
     
     def create(self, validated_data):
         # Add owner (current user) from context
@@ -36,6 +37,24 @@ class ChessBotUploadSerializer(serializers.ModelSerializer):
         
         # Create new bot
         return ChessBot.objects.create(**validated_data)
+    
+    def update(self, instance, validated_data):
+        # Update standard fields
+        instance.name = validated_data.get('name', instance.name)
+        instance.description = validated_data.get('description', instance.description)
+        instance.visibility = validated_data.get('visibility', instance.visibility)
+        
+        # Status can only be changed by teachers or through specific endpoints (activate/archive)
+        if self.context['request'].user.role == 'teacher':
+            instance.status = validated_data.get('status', instance.status)
+        
+        # Only update file_path if provided
+        if 'file_path' in validated_data:
+            instance.file_path = validated_data.get('file_path')
+            instance.version += 1  # Increment version when file changes
+            
+        instance.save()
+        return instance
 
 class StudentSerializer(serializers.ModelSerializer):
     bot_count = serializers.SerializerMethodField()

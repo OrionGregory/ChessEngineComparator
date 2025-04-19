@@ -1,7 +1,17 @@
-# Environment variables
+# Environments
 .env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[cod]
-*$py.class
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+

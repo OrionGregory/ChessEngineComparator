@@ -66,6 +66,54 @@
                     <div id="uploadMessage" style="margin-top:10px;"></div>
                 </div>
             </div>
+
+            <!-- Edit Bot Modal -->
+            <div id="editBotModal" class="modal" style="display:none;">
+                <div class="modal-content">
+                    <span class="close" onclick="closeEditBotModal()">&times;</span>
+                    <h3>Edit Chess Bot</h3>
+                    <form id="editBotForm" enctype="multipart/form-data">
+                        <input type="hidden" id="editBotId">
+                        <div class="form-group">
+                            <label for="editBotName">Bot Name</label>
+                            <input type="text" id="editBotName" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editBotDescription">Description</label>
+                            <textarea id="editBotDescription" name="description"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="editBotFile">Replace Bot File (.py only, max 5MB)</label>
+                            <input type="file" id="editBotFile" name="file_path" accept=".py">
+                            <small>Leave empty to keep the current file</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="editBotVisibility">Visibility</label>
+                            <select id="editBotVisibility" name="visibility">
+                                <option value="private">Private</option>
+                                <option value="public">Public</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
+                    <div id="editMessage" style="margin-top:10px;"></div>
+                </div>
+            </div>
+            
+            <!-- Confirm Archive Modal -->
+            <div id="confirmArchiveModal" class="modal" style="display:none;">
+                <div class="modal-content">
+                    <span class="close" onclick="closeConfirmArchiveModal()">&times;</span>
+                    <h3>Archive Bot</h3>
+                    <p>Are you sure you want to archive this bot? It will no longer be eligible for tournaments.</p>
+                    <input type="hidden" id="archiveBotId">
+                    <div class="modal-actions">
+                        <button class="btn btn-secondary" onclick="closeConfirmArchiveModal()">Cancel</button>
+                        <button class="btn btn-warning" onclick="confirmArchiveBot()">Archive</button>
+                    </div>
+                    <div id="archiveMessage"></div>
+                </div>
+            </div>
             
             <div id="botsList" class="bots-list">
                 <h4>Your Bots</h4>
@@ -314,6 +362,25 @@
         padding: 5px 10px;
         font-size: 14px;
     }
+    
+    .btn-warning {
+        background-color: #ffc107;
+        color: #212529;
+    }
+    
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    small {
+        display: block;
+        color: #666;
+        margin-top: 2px;
+        font-style: italic;
+    }
 </style>
 
 {% if user.role == 'student' %}
@@ -340,6 +407,33 @@
     function closeBotUploadModal() {
         document.getElementById('botUploadModal').style.display = 'none';
         document.getElementById('uploadMessage').innerHTML = '';
+        document.getElementById('botUploadForm').reset();
+    }
+    
+    function openEditBotModal(botId, botName, botDescription, botVisibility) {
+        document.getElementById('editBotId').value = botId;
+        document.getElementById('editBotName').value = botName;
+        document.getElementById('editBotDescription').value = botDescription;
+        document.getElementById('editBotVisibility').value = botVisibility;
+        document.getElementById('editBotModal').style.display = 'block';
+    }
+    
+    function closeEditBotModal() {
+        document.getElementById('editBotModal').style.display = 'none';
+        document.getElementById('editMessage').innerHTML = '';
+        document.getElementById('editBotForm').reset();
+    }
+    
+    function openConfirmArchiveModal(botId, botName) {
+        document.getElementById('archiveBotId').value = botId;
+        document.getElementById('confirmArchiveModal').style.display = 'block';
+        document.querySelector('#confirmArchiveModal p').innerHTML = 
+            `Are you sure you want to archive "${botName}"? It will no longer be eligible for tournaments.`;
+    }
+    
+    function closeConfirmArchiveModal() {
+        document.getElementById('confirmArchiveModal').style.display = 'none';
+        document.getElementById('archiveMessage').innerHTML = '';
     }
     
     function loadBotsList() {
@@ -372,6 +466,9 @@
                         statusClass = 'bot-status-archived';
                     }
                     
+                    // Check if this bot belongs to the current user
+                    const isOwnBot = bot.owner_email === "{{ user.email }}";
+                    
                     html += `
                         <div class="bot-card">
                             <div class="bot-info">
@@ -379,22 +476,29 @@
                                     <span class="bot-status-badge ${statusClass}">
                                         ${bot.status.toUpperCase()}
                                     </span>
+                                    ${!isOwnBot ? '<span class="bot-owner-badge">Public Bot</span>' : ''}
                                 </h5>
                                 <p>Version: ${bot.version} • Created: ${createdDate}</p>
                                 <p>${bot.description || 'No description'}</p>
                             </div>
+                            ${isOwnBot ? `
                             <div class="bot-actions">
                                 ${bot.status === 'draft' ? `
+                                    <button class="btn btn-primary" 
+                                            onclick="openEditBotModal('${bot.id}', '${bot.name}', '${bot.description || ''}', '${bot.visibility}')">
+                                        Edit
+                                    </button>
                                     <button class="btn btn-primary" 
                                             onclick="activateBot('${bot.id}')">
                                         Activate
                                     </button>` : ''}
                                 ${bot.status === 'active' ? `
-                                    <button class="btn btn-secondary" 
-                                            onclick="archiveBot('${bot.id}')">
+                                    <button class="btn btn-warning" 
+                                            onclick="openConfirmArchiveModal('${bot.id}', '${bot.name}')">
                                         Archive
                                     </button>` : ''}
                             </div>
+                            ` : ''}
                         </div>
                     `;
                 });
@@ -420,7 +524,12 @@
         })
         .then(response => response.json())
         .then(data => {
-            loadBotsList(); // Reload the bots list
+            if (data.message) {
+                // Success notification could be added here
+                loadBotsList(); // Reload the bots list
+            } else if (data.error) {
+                alert(data.error);
+            }
         })
         .catch(error => {
             console.error('Error activating bot:', error);
@@ -428,24 +537,37 @@
         });
     }
     
-    function archiveBot(botId) {
-        if (confirm('Are you sure you want to archive this bot? This will remove it from competitions.')) {
-            fetch(`/users/api/bots/${botId}/archive/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                loadBotsList(); // Reload the bots list
-            })
-            .catch(error => {
-                console.error('Error archiving bot:', error);
-                alert('Failed to archive bot. Please try again.');
-            });
-        }
+    function confirmArchiveBot() {
+        const botId = document.getElementById('archiveBotId').value;
+        
+        fetch(`/users/api/bots/${botId}/archive/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                document.getElementById('archiveMessage').innerHTML = 
+                    '<div style="color:green">Bot archived successfully!</div>';
+                
+                // Reload the bots list and close modal after a delay
+                loadBotsList();
+                setTimeout(() => {
+                    closeConfirmArchiveModal();
+                }, 1500);
+            } else if (data.error) {
+                document.getElementById('archiveMessage').innerHTML = 
+                    `<div style="color:red">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error archiving bot:', error);
+            document.getElementById('archiveMessage').innerHTML = 
+                '<div style="color:red">Failed to archive bot. Please try again.</div>';
+        });
     }
     
     // Initialize the page
@@ -493,6 +615,54 @@
                 console.error('Error uploading bot:', error);
                 document.getElementById('uploadMessage').innerHTML = 
                     '<div style="color:red">Upload failed. Please try again later.</div>';
+            });
+        });
+        
+        // Handle bot edit form submission
+        document.getElementById('editBotForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const botId = document.getElementById('editBotId').value;
+            const formData = new FormData(this);
+            
+            // If no file is selected, remove the file_path from formData
+            if (formData.get('file_path').size === 0) {
+                formData.delete('file_path');
+            }
+            
+            fetch(`/users/api/bots/${botId}/`, {
+                method: 'PATCH',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.id) {
+                    // Success
+                    document.getElementById('editMessage').innerHTML = 
+                        '<div style="color:green">Bot updated successfully!</div>';
+                    
+                    // Reload the bots list and close modal after a delay
+                    loadBotsList();
+                    setTimeout(() => {
+                        closeEditBotModal();
+                    }, 1500);
+                } else {
+                    // Error with specific fields
+                    let errorMsg = '<div style="color:red">Failed to update bot:<ul>';
+                    for (const field in data) {
+                        errorMsg += `<li>${field}: ${data[field]}</li>`;
+                    }
+                    errorMsg += '</ul></div>';
+                    document.getElementById('editMessage').innerHTML = errorMsg;
+                }
+            })
+            .catch(error => {
+                console.error('Error updating bot:', error);
+                document.getElementById('editMessage').innerHTML = 
+                    '<div style="color:red">Update failed. Please try again later.</div>';
             });
         });
     });
