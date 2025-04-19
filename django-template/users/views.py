@@ -16,6 +16,8 @@ from .serializers import (ChessBotSerializer, ChessBotUploadSerializer, StudentS
                          TournamentSerializer, TournamentDetailSerializer, MatchSerializer)
 from django.db.models import Q
 from .services import generate_round_robin_matches, generate_round_robin_matches_with_rounds
+from .tasks import run_chess_match
+from celery import chain, group
 
 def login(request):
     """Render the login page with direct Google OAuth option"""
@@ -410,6 +412,7 @@ class TournamentViewSet(viewsets.ModelViewSet):
         # Choose matchmaking method based on presence of 'use_rounds' parameter
         use_rounds = request.data.get('use_rounds', False)
         matches_created = 0
+        match_ids = []
         
         if use_rounds:
             # Generate round-robin tournament matches organized by rounds
@@ -418,57 +421,59 @@ class TournamentViewSet(viewsets.ModelViewSet):
             # Create match objects in the database with round information
             for round_num, pairings in rounds.items():
                 for white_bot, black_bot in pairings:
-                    Match.objects.create(
+                    match = Match.objects.create(
                         tournament=tournament,
                         white_bot=white_bot,
                         black_bot=black_bot,
                         round=round_num
                     )
                     matches_created += 1
+                    match_ids.append(str(match.id))
                     
                     # Optionally create reverse matches (black/white switched) in the same round
                     if request.data.get('double_round_robin', False):
-                        Match.objects.create(
+                        match = Match.objects.create(
                             tournament=tournament,
                             white_bot=black_bot,
                             black_bot=white_bot,
                             round=round_num
                         )
                         matches_created += 1
+                        match_ids.append(str(match.id))
         else:
             # Generate standard round-robin tournament matches
             match_pairings = generate_round_robin_matches(tournament)
             
             # Create match objects in the database
             for white_bot, black_bot in match_pairings:
-                Match.objects.create(
+                match = Match.objects.create(
                     tournament=tournament,
                     white_bot=white_bot,
                     black_bot=black_bot
                 )
                 matches_created += 1
+                match_ids.append(str(match.id))
                 
                 # Optionally create reverse matches (black/white switched)
                 if request.data.get('double_round_robin', False):
-                    Match.objects.create(
+                    match = Match.objects.create(
                         tournament=tournament,
                         white_bot=black_bot,
                         black_bot=white_bot
                     )
                     matches_created += 1
+                    match_ids.append(str(match.id))
         
-        # Start a background task to run the matches
-        # In a real app, you would use Celery or similar to run this asynchronously
-        # For now, we'll just simulate by updating the first match to "in_progress"
-        if tournament.matches.exists():
-            first_match = tournament.matches.first()
-            first_match.start_match()
+        # Start a background tasks to run the matches
+        # Dispatch Celery tasks for each match
+        for match_id in match_ids:
+            run_chess_match.delay(match_id)
         
         return Response({
             "message": "Tournament started successfully", 
             "matches_created": matches_created
         })
-    
+
     @action(detail=True, methods=['post'])
     def add_bot(self, request, pk=None):
         """Add a bot to the tournament"""
@@ -681,6 +686,21 @@ class MatchViewSet(viewsets.ModelViewSet):
         response = HttpResponse(match.log_file, content_type='text/plain')
         response['Content-Disposition'] = f'attachment; filename=match_{match.id}_log.txt'
         return response
+
+    @action(detail=True, methods=['post'])
+    def run_match(self, request, pk=None):
+        """Run a specific match"""
+        match = self.get_object()
+        
+        if match.status not in ['pending', 'error']:
+            return Response({
+                "error": "Match can only be run from pending or error state"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Dispatch Celery task to run the match
+        run_chess_match.delay(str(match.id))
+        
+        return Response({"message": "Match execution started"})
 
 @login_required
 def confirm_remove_student(request, student_id):

@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 import os
 import uuid
+from django.core.files.base import ContentFile
 
 class CustomUser(AbstractUser):
     USER_TYPE_CHOICES = (
@@ -184,6 +185,11 @@ class Match(models.Model):
         )
         participant.score += points
         participant.save()
+    
+    def save_log_file(self, log_content):
+        """Save the log content to the log_file field"""
+        log_file = ContentFile(log_content.encode('utf-8'))
+        self.log_file.save(f"match_{self.id}_log.txt", log_file)
 
 
 class ClassGroup(models.Model):

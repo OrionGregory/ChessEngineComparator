@@ -6,3 +6,6 @@ django-allauth==0.61.0
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.1
 psycopg2-binary==2.9.9
+python-chess==1.11.2
+celery
+redis
