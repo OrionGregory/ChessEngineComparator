@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="student-detail-container">
+    <div class="breadcrumbs">
+        <a href="{% url 'teacher_dashboard' %}">← Back to Dashboard</a>
+    </div>
+    
+    <div class="student-profile-card">
+        <div class="student-header">
+            <div class="student-avatar">
+                {{ student.email.0|upper }}
+            </div>
+            <div class="student-info">
+                <h1>{{ student.email }}</h1>
+                <p class="student-meta">Joined: {{ student.date_joined|date:"F j, Y" }}</p>
+                <p class="student-username">Username: {{ student.username }}</p>
+            </div>
+        </div>
+        
+        <hr>
+        
+        <div class="student-bots-section">
+            <h2>Student Bots</h2>
+            
+            <div id="studentBotsList" class="bots-list">
+                <p>Loading bots...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .student-detail-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .breadcrumbs {
+        margin-bottom: 20px;
+    }
+    
+    .breadcrumbs a {
+        color: #4285F4;
+        text-decoration: none;
+    }
+    
+    .student-profile-card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 30px;
+    }
+    
+    .student-header {
+        display: flex;
+        align-items: center;
+    }
+    
+    .student-avatar {
+        width: 80px;
+        height: 80px;
+        background-color: #4285F4;
+        color: white;
+        font-size: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 20px;
+    }
+    
+    .student-info h1 {
+        margin: 0 0 5px 0;
+        color: #333;
+    }
+    
+    .student-meta {
+        color: #666;
+        margin: 0 0 5px 0;
+    }
+    
+    .student-username {
+        color: #666;
+        margin: 0;
+    }
+    
+    hr {
+        border: 0;
+        height: 1px;
+        background-color: #eee;
+        margin: 20px 0;
+    }
+    
+    .bots-list {
+        margin-top: 20px;
+    }
+    
+    .bot-card {
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        background-color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .bot-info h5 {
+        margin: 0 0 5px 0;
+    }
+    
+    .bot-status-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+        margin-left: 5px;
+    }
+    
+    .bot-status-draft {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .bot-status-active {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .bot-status-archived {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .no-bots-message {
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        text-align: center;
+        color: #6c757d;
+    }
+</style>
+
+<script>
+    // Function to load student's bots
+    function loadStudentBots() {
+        fetch(`/users/api/students/{{ student.id }}/bots/`)
+            .then(response => response.json())
+            .then(data => {
+                const botsListDiv = document.getElementById('studentBotsList');
+                
+                if (data.length === 0) {
+                    botsListDiv.innerHTML = `
+                        <div class="no-bots-message">
+                            This student hasn't created any bots yet.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                
+                data.forEach(bot => {
+                    // Format date
+                    const createdDate = new Date(bot.created_at).toLocaleDateString();
+                    
+                    // Determine status badge class
+                    let statusClass = '';
+                    if (bot.status === 'draft') {
+                        statusClass = 'bot-status-draft';
+                    } else if (bot.status === 'active') {
+                        statusClass = 'bot-status-active';
+                    } else {
+                        statusClass = 'bot-status-archived';
+                    }
+                    
+                    html += `
+                        <div class="bot-card">
+                            <div class="bot-info">
+                                <h5>${bot.name} 
+                                    <span class="bot-status-badge ${statusClass}">
+                                        ${bot.status.toUpperCase()}
+                                    </span>
+                                </h5>
+                                <p>Version: ${bot.version} • Created: ${createdDate}</p>
+                                <p>Visibility: ${bot.visibility}</p>
+                                <p>${bot.description || 'No description'}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                botsListDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading student bots:', error);
+                document.getElementById('studentBotsList').innerHTML = `
+                    <p>Error loading bots. Please try again later.</p>
+                `;
+            });
+    }
+    
+    // Load student's bots when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStudentBots();
+    });
+</script>
+{% endblock %}

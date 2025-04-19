@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="welcome-container">
+    <h1>Welcome to Chess Bot Tournament Platform</h1>
+    
+    <div class="user-welcome">
+        <h2>Hello, {{ user.email }}</h2>
+        <p>You are logged in as a <strong>{{ user.role }}</strong>.</p>
+    </div>
+    
+    <div class="app-info">
+        <h3>Platform Overview</h3>
+        <p>This platform allows students to create, test, and compete with chess bots against other students.</p>
+        
+        {% if user.role == 'teacher' %}
+        <div class="teacher-dashboard">
+            <h3>Teacher Dashboard</h3>
+            <p>As a teacher, you can:</p>
+            <ul>
+                <li>Create and manage classes</li>
+                <li>View student progress</li>
+                <li>Organize tournaments</li>
+                <li>Review student code</li>
+            </ul>
+            <a href="{% url 'profile' %}" class="btn btn-primary">Go to Dashboard</a>
+        </div>
+        {% else %}
+        <div class="student-dashboard">
+            <h3>Student Dashboard</h3>
+            <p>As a student, you can:</p>
+            <ul>
+                <li>Create and train your chess bot</li>
+                <li>Test your bot against built-in opponents</li>
+                <li>Compete in tournaments</li>
+                <li>View your progress and rankings</li>
+            </ul>
+            <a href="{% url 'profile' %}" class="btn btn-primary">Go to Dashboard</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .welcome-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .user-welcome {
+        background-color: #f5f5f5;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    .app-info {
+        margin-top: 30px;
+    }
+    .teacher-dashboard, .student-dashboard {
+        background-color: #e8f5e9;
+        padding: 20px;
+        border-radius: 5px;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}

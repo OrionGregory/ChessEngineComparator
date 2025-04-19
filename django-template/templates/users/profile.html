@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="profile-container">
+    <h1>Your Profile</h1>
+    
+    <div class="profile-card">
+        <div class="profile-header">
+            <div class="profile-avatar">
+                {{ user.email.0|upper }}
+            </div>
+            <div class="profile-info">
+                <h2>{{ user.email }}</h2>
+                <p class="user-role">{{ user.role|title }}</p>
+                <p class="join-date">Member since {{ user.date_joined|date:"F j, Y" }}</p>
+            </div>
+        </div>
+        
+        <hr>
+        
+        {% if user.role == 'teacher' %}
+        <div class="teacher-section">
+            <h3>Teacher Tools</h3>
+            <div class="action-buttons">
+                <a href="{% url 'teacher_dashboard' %}" class="btn btn-primary">Go to Dashboard</a>
+                <a href="#" class="btn btn-primary">Manage Classes</a>
+                <a href="#" class="btn btn-secondary">Create Tournament</a>
+                <a href="#" class="btn btn-secondary">View Student Progress</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="student-section">
+            <h3>Chess Bot Status</h3>
+            <div class="bot-status">
+                <p>Manage your chess bots here.</p>
+                <button class="btn btn-primary" onclick="openBotUploadModal()">Upload New Bot</button>
+            </div>
+            
+            <!-- Bot upload modal -->
+            <div id="botUploadModal" class="modal" style="display:none;">
+                <div class="modal-content">
+                    <span class="close" onclick="closeBotUploadModal()">&times;</span>
+                    <h3>Upload Chess Bot</h3>
+                    <form id="botUploadForm" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="botName">Bot Name</label>
+                            <input type="text" id="botName" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="botDescription">Description</label>
+                            <textarea id="botDescription" name="description"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="botFile">Bot File (.py only, max 5MB)</label>
+                            <input type="file" id="botFile" name="file_path" required accept=".py">
+                        </div>
+                        <div class="form-group">
+                            <label for="botVisibility">Visibility</label>
+                            <select id="botVisibility" name="visibility">
+                                <option value="private">Private</option>
+                                <option value="public">Public</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Upload</button>
+                    </form>
+                    <div id="uploadMessage" style="margin-top:10px;"></div>
+                </div>
+            </div>
+            
+            <div id="botsList" class="bots-list">
+                <h4>Your Bots</h4>
+                <div class="loading">Loading your bots...</div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="account-settings">
+            <h3>Account Settings</h3>
+            <ul class="settings-list">
+                <li><a href="#">Change Password</a></li>
+                <li><a href="#">Notification Preferences</a></li>
+                <li><a href="/accounts/logout/" class="logout-link">Logout</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+    .profile-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .profile-card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 30px;
+        margin-top: 20px;
+    }
+    
+    .profile-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .profile-avatar {
+        width: 80px;
+        height: 80px;
+        background-color: #4285F4;
+        color: white;
+        font-size: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 20px;
+    }
+    
+    .profile-info h2 {
+        margin: 0 0 5px 0;
+        color: #333;
+    }
+    
+    .user-role {
+        background-color: #e8f5e9;
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 14px;
+        margin: 0;
+    }
+    
+    .join-date {
+        color: #666;
+        font-size: 14px;
+        margin-top: 5px;
+    }
+    
+    hr {
+        border: 0;
+        height: 1px;
+        background-color: #eee;
+        margin: 20px 0;
+    }
+    
+    h3 {
+        color: #333;
+        margin-top: 25px;
+        margin-bottom: 15px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .student-section, .teacher-section {
+        margin-bottom: 30px;
+    }
+    
+    .bot-status {
+        background-color: #f5f5f5;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    
+    .settings-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .settings-list li {
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .settings-list li:last-child {
+        border-bottom: none;
+    }
+    
+    .settings-list a {
+        text-decoration: none;
+        color: #4285F4;
+    }
+    
+    .logout-link {
+        color: #f44336 !important;
+    }
+    
+    .btn {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-primary {
+        background-color: #4285F4;
+        color: white;
+    }
+    
+    .btn-secondary {
+        background-color: #f1f1f1;
+        color: #333;
+    }
+    
+    /* Add styles for bot upload */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+    }
+    
+    .modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 20px;
+        border-radius: 8px;
+        width: 60%;
+        max-width: 500px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    
+    .bots-list {
+        margin-top: 20px;
+    }
+    
+    .bot-card {
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        background-color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .bot-info h5 {
+        margin: 0 0 5px 0;
+    }
+    
+    .bot-status-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+        margin-left: 5px;
+    }
+    
+    .bot-status-draft {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .bot-status-active {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .bot-status-archived {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .bot-actions {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .bot-actions .btn {
+        padding: 5px 10px;
+        font-size: 14px;
+    }
+</style>
+
+{% if user.role == 'student' %}
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    function openBotUploadModal() {
+        document.getElementById('botUploadModal').style.display = 'block';
+    }
+    
+    function closeBotUploadModal() {
+        document.getElementById('botUploadModal').style.display = 'none';
+        document.getElementById('uploadMessage').innerHTML = '';
+    }
+    
+    function loadBotsList() {
+        fetch('/users/api/bots/')
+            .then(response => response.json())
+            .then(data => {
+                const botsListDiv = document.getElementById('botsList');
+                
+                if (data.length === 0) {
+                    botsListDiv.innerHTML = `
+                        <h4>Your Bots</h4>
+                        <p>You haven't created any bots yet. Upload your first bot to get started!</p>
+                    `;
+                    return;
+                }
+                
+                let html = `<h4>Your Bots</h4>`;
+                
+                data.forEach(bot => {
+                    // Format date
+                    const createdDate = new Date(bot.created_at).toLocaleDateString();
+                    
+                    // Determine status badge class
+                    let statusClass = '';
+                    if (bot.status === 'draft') {
+                        statusClass = 'bot-status-draft';
+                    } else if (bot.status === 'active') {
+                        statusClass = 'bot-status-active';
+                    } else {
+                        statusClass = 'bot-status-archived';
+                    }
+                    
+                    html += `
+                        <div class="bot-card">
+                            <div class="bot-info">
+                                <h5>${bot.name} 
+                                    <span class="bot-status-badge ${statusClass}">
+                                        ${bot.status.toUpperCase()}
+                                    </span>
+                                </h5>
+                                <p>Version: ${bot.version} • Created: ${createdDate}</p>
+                                <p>${bot.description || 'No description'}</p>
+                            </div>
+                            <div class="bot-actions">
+                                ${bot.status === 'draft' ? `
+                                    <button class="btn btn-primary" 
+                                            onclick="activateBot('${bot.id}')">
+                                        Activate
+                                    </button>` : ''}
+                                ${bot.status === 'active' ? `
+                                    <button class="btn btn-secondary" 
+                                            onclick="archiveBot('${bot.id}')">
+                                        Archive
+                                    </button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                botsListDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading bots:', error);
+                document.getElementById('botsList').innerHTML = `
+                    <h4>Your Bots</h4>
+                    <p>Error loading bots. Please try again later.</p>
+                `;
+            });
+    }
+    
+    function activateBot(botId) {
+        fetch(`/users/api/bots/${botId}/activate/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadBotsList(); // Reload the bots list
+        })
+        .catch(error => {
+            console.error('Error activating bot:', error);
+            alert('Failed to activate bot. Please try again.');
+        });
+    }
+    
+    function archiveBot(botId) {
+        if (confirm('Are you sure you want to archive this bot? This will remove it from competitions.')) {
+            fetch(`/users/api/bots/${botId}/archive/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadBotsList(); // Reload the bots list
+            })
+            .catch(error => {
+                console.error('Error archiving bot:', error);
+                alert('Failed to archive bot. Please try again.');
+            });
+        }
+    }
+    
+    // Initialize the page
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load the bots list on page load
+        loadBotsList();
+        
+        // Handle bot upload form submission
+        document.getElementById('botUploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch('/users/api/bots/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.id) {
+                    // Success
+                    document.getElementById('uploadMessage').innerHTML = 
+                        '<div style="color:green">Bot uploaded successfully!</div>';
+                    document.getElementById('botUploadForm').reset();
+                    
+                    // Reload the bots list and close modal after a delay
+                    loadBotsList();
+                    setTimeout(() => {
+                        closeBotUploadModal();
+                    }, 1500);
+                } else {
+                    // Error with specific fields
+                    let errorMsg = '<div style="color:red">Failed to upload bot:<ul>';
+                    for (const field in data) {
+                        errorMsg += `<li>${field}: ${data[field]}</li>`;
+                    }
+                    errorMsg += '</ul></div>';
+                    document.getElementById('uploadMessage').innerHTML = errorMsg;
+                }
+            })
+            .catch(error => {
+                console.error('Error uploading bot:', error);
+                document.getElementById('uploadMessage').innerHTML = 
+                    '<div style="color:red">Upload failed. Please try again later.</div>';
+            });
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,561 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-container">
+    <h1>Teacher Dashboard</h1>
+    
+    <div class="dashboard-tabs">
+        <div class="tab-header">
+            <button class="tab-button active" onclick="openTab(event, 'students-tab')">Students</button>
+            <button class="tab-button" onclick="openTab(event, 'classes-tab')">Classes</button>
+            <button class="tab-button" onclick="openTab(event, 'tournaments-tab')">Tournaments</button>
+        </div>
+        
+        <!-- Students Tab -->
+        <div id="students-tab" class="tab-content active">
+            <h2>Students</h2>
+            
+            <div class="search-bar">
+                <input type="text" id="studentSearch" placeholder="Search students..." onkeyup="searchStudents()">
+            </div>
+            
+            <div id="studentsList" class="data-list">
+                <p>Loading students...</p>
+            </div>
+        </div>
+        
+        <!-- Classes Tab -->
+        <div id="classes-tab" class="tab-content">
+            <h2>Classes</h2>
+            
+            <button class="btn btn-primary" onclick="openCreateClassModal()">Create New Class</button>
+            
+            <div id="classesList" class="data-list">
+                <p>Loading classes...</p>
+            </div>
+            
+            <!-- Create Class Modal -->
+            <div id="createClassModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeCreateClassModal()">&times;</span>
+                    <h3>Create New Class</h3>
+                    <form id="createClassForm">
+                        <div class="form-group">
+                            <label for="className">Class Name</label>
+                            <input type="text" id="className" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="classDescription">Description</label>
+                            <textarea id="classDescription" name="description"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Class</button>
+                    </form>
+                    <div id="createClassMessage"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tournaments Tab -->
+        <div id="tournaments-tab" class="tab-content">
+            <h2>Tournaments</h2>
+            
+            <button class="btn btn-primary" onclick="openCreateTournamentModal()">Create New Tournament</button>
+            
+            <div id="tournamentsList" class="data-list">
+                <p>Loading tournaments...</p>
+            </div>
+            
+            <!-- Create Tournament Modal -->
+            <div id="createTournamentModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeCreateTournamentModal()">&times;</span>
+                    <h3>Create New Tournament</h3>
+                    <form id="createTournamentForm">
+                        <div class="form-group">
+                            <label for="tournamentName">Tournament Name</label>
+                            <input type="text" id="tournamentName" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="tournamentDescription">Description</label>
+                            <textarea id="tournamentDescription" name="description"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="tournamentSchedule">Schedule (optional)</label>
+                            <input type="datetime-local" id="tournamentSchedule" name="scheduled_at">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Tournament</button>
+                    </form>
+                    <div id="createTournamentMessage"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .dashboard-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .dashboard-tabs {
+        margin-top: 20px;
+    }
+    
+    .tab-header {
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        margin-bottom: 20px;
+    }
+    
+    .tab-button {
+        background-color: inherit;
+        border: none;
+        padding: 10px 20px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+        border-radius: 4px 4px 0 0;
+        margin-right: 5px;
+    }
+    
+    .tab-button:hover {
+        background-color: #f1f1f1;
+    }
+    
+    .tab-button.active {
+        border: 1px solid #ddd;
+        border-bottom: none;
+        background-color: white;
+        font-weight: bold;
+    }
+    
+    .tab-content {
+        display: none;
+        padding: 20px 0;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    .search-bar {
+        margin-bottom: 20px;
+    }
+    
+    .search-bar input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+    
+    .data-list {
+        margin-top: 20px;
+    }
+    
+    .student-card,
+    .class-card,
+    .tournament-card {
+        background-color: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .student-info,
+    .class-info,
+    .tournament-info {
+        flex-grow: 1;
+    }
+    
+    .student-actions,
+    .class-actions,
+    .tournament-actions {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+        margin-left: 5px;
+    }
+    
+    .badge-active {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .badge-scheduled {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .badge-in-progress {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .badge-completed {
+        background-color: #d1e7dd;
+        color: #0f5132;
+    }
+    
+    .badge-cancelled {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    /* Keep existing modal styles */
+</style>
+
+<script>
+    // Tab functionality
+    function openTab(evt, tabName) {
+        const tabContents = document.getElementsByClassName("tab-content");
+        for (let i = 0; i < tabContents.length; i++) {
+            tabContents[i].classList.remove("active");
+        }
+        
+        const tabButtons = document.getElementsByClassName("tab-button");
+        for (let i = 0; i < tabButtons.length; i++) {
+            tabButtons[i].classList.remove("active");
+        }
+        
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+        
+        // Load data for the selected tab
+        if (tabName === "students-tab") {
+            loadStudents();
+        } else if (tabName === "classes-tab") {
+            loadClasses();
+        } else if (tabName === "tournaments-tab") {
+            loadTournaments();
+        }
+    }
+    
+    // Get CSRF token for POST requests
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Modal functions
+    function openCreateClassModal() {
+        document.getElementById('createClassModal').style.display = 'block';
+    }
+    
+    function closeCreateClassModal() {
+        document.getElementById('createClassModal').style.display = 'none';
+        document.getElementById('createClassMessage').innerHTML = '';
+        document.getElementById('createClassForm').reset();
+    }
+    
+    function openCreateTournamentModal() {
+        document.getElementById('createTournamentModal').style.display = 'block';
+    }
+    
+    function closeCreateTournamentModal() {
+        document.getElementById('createTournamentModal').style.display = 'none';
+        document.getElementById('createTournamentMessage').innerHTML = '';
+        document.getElementById('createTournamentForm').reset();
+    }
+    
+    // API functions
+    function loadStudents() {
+        fetch('/users/api/students/')
+            .then(response => response.json())
+            .then(data => {
+                const studentsListDiv = document.getElementById('studentsList');
+                
+                if (data.length === 0) {
+                    studentsListDiv.innerHTML = `<p>No students found.</p>`;
+                    return;
+                }
+                
+                let html = '';
+                
+                data.forEach(student => {
+                    const joinDate = new Date(student.date_joined).toLocaleDateString();
+                    
+                    html += `
+                        <div class="student-card" data-student-id="${student.id}" data-email="${student.email}">
+                            <div class="student-info">
+                                <h4>${student.email}</h4>
+                                <p>Joined: ${joinDate} • Bots: ${student.bot_count}</p>
+                            </div>
+                            <div class="student-actions">
+                                <button class="btn btn-secondary" onclick="viewStudentDetails('${student.id}')">
+                                    View Details
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                studentsListDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading students:', error);
+                document.getElementById('studentsList').innerHTML = `
+                    <p>Error loading students. Please try again later.</p>
+                `;
+            });
+    }
+    
+    function searchStudents() {
+        const input = document.getElementById('studentSearch');
+        const filter = input.value.toUpperCase();
+        const studentCards = document.querySelectorAll('.student-card');
+        
+        studentCards.forEach(card => {
+            const email = card.getAttribute('data-email').toUpperCase();
+            if (email.indexOf(filter) > -1) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+    
+    function viewStudentDetails(studentId) {
+        window.location.href = `/users/student/${studentId}/`;
+    }
+    
+    function loadClasses() {
+        fetch('/users/api/classes/')
+            .then(response => response.json())
+            .then(data => {
+                const classesListDiv = document.getElementById('classesList');
+                
+                if (data.length === 0) {
+                    classesListDiv.innerHTML = `<p>No classes found. Create your first class!</p>`;
+                    return;
+                }
+                
+                let html = '';
+                
+                data.forEach(cls => {
+                    const createdDate = new Date(cls.created_at).toLocaleDateString();
+                    
+                    html += `
+                        <div class="class-card">
+                            <div class="class-info">
+                                <h4>${cls.name}</h4>
+                                <p>Students: ${cls.student_count} • Created: ${createdDate}</p>
+                                <p>${cls.description || 'No description'}</p>
+                            </div>
+                            <div class="class-actions">
+                                <button class="btn btn-secondary" onclick="viewClassDetails('${cls.id}')">
+                                    Manage Class
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                classesListDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading classes:', error);
+                document.getElementById('classesList').innerHTML = `
+                    <p>Error loading classes. Please try again later.</p>
+                `;
+            });
+    }
+    
+    function viewClassDetails(classId) {
+        window.location.href = `/users/class/${classId}/`;
+    }
+    
+    function loadTournaments() {
+        fetch('/users/api/tournaments/')
+            .then(response => response.json())
+            .then(data => {
+                const tournamentsListDiv = document.getElementById('tournamentsList');
+                
+                if (data.length === 0) {
+                    tournamentsListDiv.innerHTML = `<p>No tournaments found. Create your first tournament!</p>`;
+                    return;
+                }
+                
+                let html = '';
+                
+                data.forEach(tournament => {
+                    const createdDate = new Date(tournament.created_at).toLocaleDateString();
+                    let scheduledDate = tournament.scheduled_at ? 
+                        new Date(tournament.scheduled_at).toLocaleString() : 'Not scheduled';
+                    
+                    // Determine badge class based on status
+                    let statusClass = '';
+                    switch(tournament.status) {
+                        case 'scheduled':
+                            statusClass = 'badge-scheduled';
+                            break;
+                        case 'in_progress':
+                            statusClass = 'badge-in-progress';
+                            break;
+                        case 'completed':
+                            statusClass = 'badge-completed';
+                            break;
+                        case 'cancelled':
+                            statusClass = 'badge-cancelled';
+                            break;
+                    }
+                    
+                    html += `
+                        <div class="tournament-card">
+                            <div class="tournament-info">
+                                <h4>${tournament.name} 
+                                    <span class="badge ${statusClass}">
+                                        ${tournament.status.toUpperCase()}
+                                    </span>
+                                </h4>
+                                <p>Participants: ${tournament.participant_count} • Matches: ${tournament.match_count}</p>
+                                <p>Created: ${createdDate} • Scheduled: ${scheduledDate}</p>
+                                <p>${tournament.description || 'No description'}</p>
+                            </div>
+                            <div class="tournament-actions">
+                                <button class="btn btn-secondary" onclick="viewTournamentDetails('${tournament.id}')">
+                                    Manage Tournament
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                tournamentsListDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading tournaments:', error);
+                document.getElementById('tournamentsList').innerHTML = `
+                    <p>Error loading tournaments. Please try again later.</p>
+                `;
+            });
+    }
+    
+    function viewTournamentDetails(tournamentId) {
+        window.location.href = `/users/tournament/${tournamentId}/`;
+    }
+    
+    // Form submission handlers
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load students by default
+        loadStudents();
+        
+        // Handle class creation form
+        document.getElementById('createClassForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const jsonData = {};
+            formData.forEach((value, key) => {
+                jsonData[key] = value;
+            });
+            
+            fetch('/users/api/classes/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(jsonData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.id) {
+                    document.getElementById('createClassMessage').innerHTML = 
+                        '<div style="color:green">Class created successfully!</div>';
+                    document.getElementById('createClassForm').reset();
+                    
+                    // Reload the classes list and close modal after a delay
+                    loadClasses();
+                    setTimeout(() => {
+                        closeCreateClassModal();
+                    }, 1500);
+                } else {
+                    // Error handling
+                    let errorMsg = '<div style="color:red">Failed to create class:<ul>';
+                    for (const field in data) {
+                        errorMsg += `<li>${field}: ${data[field]}</li>`;
+                    }
+                    errorMsg += '</ul></div>';
+                    document.getElementById('createClassMessage').innerHTML = errorMsg;
+                }
+            })
+            .catch(error => {
+                console.error('Error creating class:', error);
+                document.getElementById('createClassMessage').innerHTML = 
+                    '<div style="color:red">Failed to create class. Please try again.</div>';
+            });
+        });
+        
+        // Handle tournament creation form
+        document.getElementById('createTournamentForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const jsonData = {};
+            formData.forEach((value, key) => {
+                jsonData[key] = value || null; // Handle empty scheduled_at
+            });
+            
+            fetch('/users/api/tournaments/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(jsonData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.id) {
+                    document.getElementById('createTournamentMessage').innerHTML = 
+                        '<div style="color:green">Tournament created successfully!</div>';
+                    document.getElementById('createTournamentForm').reset();
+                    
+                    // Reload the tournaments list and close modal after a delay
+                    loadTournaments();
+                    setTimeout(() => {
+                        closeCreateTournamentModal();
+                    }, 1500);
+                } else {
+                    // Error handling
+                    let errorMsg = '<div style="color:red">Failed to create tournament:<ul>';
+                    for (const field in data) {
+                        errorMsg += `<li>${field}: ${data[field]}</li>`;
+                    }
+                    errorMsg += '</ul></div>';
+                    document.getElementById('createTournamentMessage').innerHTML = errorMsg;
+                }
+            })
+            .catch(error => {
+                console.error('Error creating tournament:', error);
+                document.getElementById('createTournamentMessage').innerHTML = 
+                    '<div style="color:red">Failed to create tournament. Please try again.</div>';
+            });
+        });
+    });
+</script>
+{% endblock %}
