@@ -113,7 +113,7 @@ class TournamentParticipant(models.Model):
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE)
     bot = models.ForeignKey(ChessBot, on_delete=models.CASCADE)
     added_at = models.DateTimeField(auto_now_add=True)
-    score = models.IntegerField(default=0)
+    score = models.FloatField(default=0)  # Using float for half-points in draws
     rank = models.IntegerField(null=True, blank=True)
     
     class Meta:
@@ -147,6 +147,7 @@ class Match(models.Model):
     result = models.CharField(max_length=10, choices=RESULT_CHOICES, null=True, blank=True)
     pgn_file = models.FileField(upload_to='match_records/%Y/%m/%d/', null=True, blank=True)
     log_file = models.FileField(upload_to='match_logs/%Y/%m/%d/', null=True, blank=True)
+    round = models.PositiveIntegerField(null=True, blank=True)  # Added round field
     
     class Meta:
         ordering = ['created_at']

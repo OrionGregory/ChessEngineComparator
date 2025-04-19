@@ -15,6 +15,7 @@ from .serializers import (ChessBotSerializer, ChessBotUploadSerializer, StudentS
                          ClassGroupSerializer, ClassGroupDetailSerializer,
                          TournamentSerializer, TournamentDetailSerializer, MatchSerializer)
 from django.db.models import Q
+from .services import generate_round_robin_matches, generate_round_robin_matches_with_rounds
 
 def login(request):
     """Render the login page with direct Google OAuth option"""
@@ -359,7 +360,6 @@ class ClassGroupViewSet(viewsets.ModelViewSet):
 
 class TournamentViewSet(viewsets.ModelViewSet):
     """API endpoint for managing tournaments"""
-    serializer_class = TournamentSerializer
     permission_classes = [IsTeacher]
     
     def get_queryset(self):
@@ -374,6 +374,100 @@ class TournamentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Set created_by to current user when creating"""
         serializer.save(created_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """Debug tournament creation"""
+        print(f"Request data: {request.data}")
+        print(f"User: {request.user.email} (authenticated: {request.user.is_authenticated})")
+        
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            print(f"Serializer errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=True, methods=['post'])
+    def start_tournament(self, request, pk=None):
+        """Start the tournament and generate matches"""
+        tournament = self.get_object()
+        
+        if tournament.status != 'scheduled':
+            return Response({"error": "Tournament can only be started from scheduled state"}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if there are enough active participants
+        participants = list(tournament.participants.filter(status='active'))
+        if len(participants) < 2:
+            return Response({"error": "Need at least 2 active bots to start tournament"}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        # Start the tournament
+        tournament.start_tournament()
+        
+        # Choose matchmaking method based on presence of 'use_rounds' parameter
+        use_rounds = request.data.get('use_rounds', False)
+        matches_created = 0
+        
+        if use_rounds:
+            # Generate round-robin tournament matches organized by rounds
+            rounds = generate_round_robin_matches_with_rounds(tournament)
+            
+            # Create match objects in the database with round information
+            for round_num, pairings in rounds.items():
+                for white_bot, black_bot in pairings:
+                    Match.objects.create(
+                        tournament=tournament,
+                        white_bot=white_bot,
+                        black_bot=black_bot,
+                        round=round_num
+                    )
+                    matches_created += 1
+                    
+                    # Optionally create reverse matches (black/white switched) in the same round
+                    if request.data.get('double_round_robin', False):
+                        Match.objects.create(
+                            tournament=tournament,
+                            white_bot=black_bot,
+                            black_bot=white_bot,
+                            round=round_num
+                        )
+                        matches_created += 1
+        else:
+            # Generate standard round-robin tournament matches
+            match_pairings = generate_round_robin_matches(tournament)
+            
+            # Create match objects in the database
+            for white_bot, black_bot in match_pairings:
+                Match.objects.create(
+                    tournament=tournament,
+                    white_bot=white_bot,
+                    black_bot=black_bot
+                )
+                matches_created += 1
+                
+                # Optionally create reverse matches (black/white switched)
+                if request.data.get('double_round_robin', False):
+                    Match.objects.create(
+                        tournament=tournament,
+                        white_bot=black_bot,
+                        black_bot=white_bot
+                    )
+                    matches_created += 1
+        
+        # Start a background task to run the matches
+        # In a real app, you would use Celery or similar to run this asynchronously
+        # For now, we'll just simulate by updating the first match to "in_progress"
+        if tournament.matches.exists():
+            first_match = tournament.matches.first()
+            first_match.start_match()
+        
+        return Response({
+            "message": "Tournament started successfully", 
+            "matches_created": matches_created
+        })
     
     @action(detail=True, methods=['post'])
     def add_bot(self, request, pk=None):
@@ -418,52 +512,6 @@ class TournamentViewSet(viewsets.ModelViewSet):
         except TournamentParticipant.DoesNotExist:
             return Response({"error": "Bot not in tournament"}, 
                             status=status.HTTP_404_NOT_FOUND)
-    
-    @action(detail=True, methods=['post'])
-    def start_tournament(self, request, pk=None):
-        """Start the tournament and generate matches"""
-        tournament = self.get_object()
-        
-        if tournament.status != 'scheduled':
-            return Response({"error": "Tournament can only be started from scheduled state"}, 
-                            status=status.HTTP_400_BAD_REQUEST)
-        
-        participants = list(tournament.participants.filter(status='active'))
-        if len(participants) < 2:
-            return Response({"error": "Need at least 2 active bots to start tournament"}, 
-                            status=status.HTTP_400_BAD_REQUEST)
-        
-        # Start the tournament
-        tournament.start_tournament()
-        
-        # Generate round-robin tournament matches
-        for i in range(len(participants)):
-            for j in range(i+1, len(participants)):
-                # Create match
-                Match.objects.create(
-                    tournament=tournament,
-                    white_bot=participants[i],
-                    black_bot=participants[j]
-                )
-                
-                # Create reverse match (black/white switched)
-                Match.objects.create(
-                    tournament=tournament,
-                    white_bot=participants[j],
-                    black_bot=participants[i]
-                )
-        
-        # Start a background task to run the matches
-        # In a real app, you would use Celery or similar to run this asynchronously
-        # For now, we'll just simulate by updating the first match to "in_progress"
-        if tournament.matches.exists():
-            first_match = tournament.matches.first()
-            first_match.start_match()
-        
-        return Response({
-            "message": "Tournament started successfully", 
-            "matches_created": tournament.matches.count()
-        })
     
     @action(detail=True, methods=['get'])
     def download_results(self, request, pk=None):
@@ -514,6 +562,85 @@ class TournamentViewSet(viewsets.ModelViewSet):
         
         tournament.cancel_tournament()
         return Response({"message": "Tournament cancelled"})
+
+    @action(detail=True, methods=['post'])
+    def add_participant(self, request, pk=None):
+        """Add a bot as participant to the tournament"""
+        tournament = self.get_object()
+        
+        if tournament.status != 'scheduled':
+            return Response({"error": "Can only add participants to scheduled tournaments"}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        bot_id = request.data.get('bot_id')
+        if not bot_id:
+            return Response({"error": "Bot ID is required"}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Print debug info
+            print(f"Adding bot {bot_id} to tournament {tournament.id}")
+            
+            bot = ChessBot.objects.get(id=bot_id)
+            
+            # Check if the bot is already a participant
+            if TournamentParticipant.objects.filter(tournament=tournament, bot=bot).exists():
+                return Response({"error": "Bot is already a participant in this tournament"}, 
+                               status=status.HTTP_400_BAD_REQUEST)
+            
+            # Add the bot as a participant
+            participant = TournamentParticipant.objects.create(tournament=tournament, bot=bot)
+            print(f"Created participant: {participant.id}")
+            
+            # Use detail serializer to return updated tournament data
+            serializer = TournamentDetailSerializer(tournament)
+            return Response({
+                "message": "Bot added to tournament successfully",
+                "tournament": serializer.data
+            })
+        except ChessBot.DoesNotExist:
+            return Response({"error": "Bot not found"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"Error adding participant: {str(e)}")
+            return Response({"error": f"Error adding bot: {str(e)}"}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def remove_participant(self, request, pk=None):
+        """Remove a bot as participant from the tournament"""
+        tournament = self.get_object()
+        
+        if tournament.status != 'scheduled':
+            return Response({"error": "Can only remove participants from scheduled tournaments"}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        bot_id = request.data.get('bot_id')
+        if not bot_id:
+            return Response({"error": "Bot ID is required"}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if the bot is a participant
+        try:
+            participant = TournamentParticipant.objects.get(tournament=tournament, bot_id=bot_id)
+            participant.delete()
+            return Response({"message": "Bot removed from tournament successfully"})
+        except TournamentParticipant.DoesNotExist:
+            return Response({"error": "Bot is not a participant in this tournament"}, 
+                            status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Cancel the tournament"""
+        tournament = self.get_object()
+        
+        if tournament.status not in ['scheduled', 'in_progress']:
+            return Response({"error": "Can only cancel scheduled or in-progress tournaments"}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        tournament.cancel_tournament()
+        
+        return Response({"message": "Tournament cancelled successfully"})
 
 class MatchViewSet(viewsets.ModelViewSet):
     """API endpoint for managing matches"""

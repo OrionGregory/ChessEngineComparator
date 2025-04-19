@@ -107,25 +107,17 @@ class ClassGroupDetailSerializer(serializers.ModelSerializer):
 
 class TournamentSerializer(serializers.ModelSerializer):
     created_by_email = serializers.SerializerMethodField()
-    participant_count = serializers.SerializerMethodField()
-    match_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Tournament
-        fields = ['id', 'name', 'description', 'created_by', 'created_by_email',
-                 'created_at', 'scheduled_at', 'completed_at', 'status', 
-                 'participant_count', 'match_count']
-        read_only_fields = ['id', 'created_at', 'completed_at', 'created_by_email',
-                          'participant_count', 'match_count']
+        fields = [
+            'id', 'name', 'description', 'created_at', 'scheduled_at',
+            'completed_at', 'status', 'created_by', 'created_by_email'
+        ]
+        read_only_fields = ['id', 'created_at', 'created_by', 'created_by_email']
     
     def get_created_by_email(self, obj):
-        return obj.created_by.email
-    
-    def get_participant_count(self, obj):
-        return obj.participants.count()
-    
-    def get_match_count(self, obj):
-        return obj.matches.count()
+        return obj.created_by.email if obj.created_by else None
 
 class TournamentDetailSerializer(serializers.ModelSerializer):
     created_by_email = serializers.SerializerMethodField()
@@ -143,11 +135,18 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
         return obj.created_by.email
     
     def get_participants(self, obj):
-        participants = TournamentParticipant.objects.filter(tournament=obj).order_by('-score')
+        # Use select_related to optimize queries
+        participants = TournamentParticipant.objects.filter(tournament=obj)\
+            .select_related('bot', 'bot__owner')\
+            .order_by('-score')
+        
+        # Debug print to check what's being retrieved
+        print(f"Found {participants.count()} participants for tournament {obj.id}")
+        
         return [{
-            'bot_id': p.bot.id,
+            'bot_id': str(p.bot.id),  # Convert UUID to string for serialization
             'bot_name': p.bot.name,
-            'owner_email': p.bot.owner.email,
+            'owner_email': p.bot.owner.email if p.bot.owner else "Unknown",
             'score': p.score,
             'rank': p.rank
         } for p in participants]
@@ -158,27 +157,19 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
 class MatchSerializer(serializers.ModelSerializer):
     white_bot_name = serializers.SerializerMethodField()
     black_bot_name = serializers.SerializerMethodField()
-    white_bot_owner = serializers.SerializerMethodField()
-    black_bot_owner = serializers.SerializerMethodField()
     
     class Meta:
         model = Match
-        fields = ['id', 'tournament', 'white_bot', 'white_bot_name', 'white_bot_owner',
-                 'black_bot', 'black_bot_name', 'black_bot_owner', 'created_at', 
-                 'started_at', 'completed_at', 'status', 'result', 
-                 'pgn_file', 'log_file']
-        read_only_fields = ['id', 'created_at', 'started_at', 'completed_at', 
-                          'white_bot_name', 'black_bot_name', 
-                          'white_bot_owner', 'black_bot_owner']
+        fields = [
+            'id', 'tournament', 'white_bot', 'white_bot_name',
+            'black_bot', 'black_bot_name', 'status', 'result',
+            'created_at', 'started_at', 'completed_at', 
+            'pgn_file', 'log_file', 'round'  # Added round field
+        ]
+        read_only_fields = ['id', 'created_at', 'white_bot_name', 'black_bot_name']
     
     def get_white_bot_name(self, obj):
         return obj.white_bot.name
     
     def get_black_bot_name(self, obj):
         return obj.black_bot.name
-    
-    def get_white_bot_owner(self, obj):
-        return obj.white_bot.owner.email
-    
-    def get_black_bot_owner(self, obj):
-        return obj.black_bot.owner.email

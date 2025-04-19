@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="tournament-detail-container">
+    <div class="breadcrumbs">
+        <a href="{% url 'teacher_dashboard' %}">← Back to Dashboard</a>
+    </div>
+    
+    <div class="tournament-profile-card">
+        <div class="tournament-header">
+            <h1>{{ tournament.name }}</h1>
+            <p class="tournament-meta">
+                Status: <span class="badge badge-{{ tournament.status }}">{{ tournament.get_status_display }}</span>
+                • Created: {{ tournament.created_at|date:"F j, Y" }}
+                {% if tournament.scheduled_at %}
+                • Scheduled: {{ tournament.scheduled_at|date:"F j, Y H:i" }}
+                {% endif %}
+            </p>
+            <p class="tournament-description">{{ tournament.description }}</p>
+        </div>
+        
+        <hr>
+        
+        {% if tournament.status == 'scheduled' %}
+        <div class="tournament-actions">
+            <button class="btn btn-primary" onclick="startTournament()">Start Tournament</button>
+            <button class="btn btn-danger" onclick="openCancelTournamentModal()">Cancel Tournament</button>
+        </div>
+        
+        <hr>
+        {% endif %}
+        
+        <div class="tournament-participants-section">
+            <div class="section-header">
+                <h2>Participants</h2>
+                {% if tournament.status == 'scheduled' %}
+                <button class="btn btn-primary" onclick="openAddParticipantModal()">Add Bot</button>
+                {% endif %}
+            </div>
+            
+            <div id="tournamentParticipantsList" class="participants-list">
+                <p>Loading participants...</p>
+            </div>
+        </div>
+        
+        <hr>
+        
+        <div class="tournament-matches-section">
+            <h2>Matches</h2>
+            <div id="tournamentMatchesList" class="matches-list">
+                <p>Loading matches...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Bot Modal -->
+    <div id="addParticipantModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddParticipantModal()">&times;</span>
+            <h3>Add Bot to Tournament</h3>
+            <div class="search-container">
+                <input type="text" id="botSearchInput" placeholder="Search bots...">
+                <button onclick="searchBots()">Search</button>
+            </div>
+            <div id="searchResults" class="search-results">
+                <!-- Search results will be displayed here -->
+            </div>
+            <div id="addParticipantMessage"></div>
+        </div>
+    </div>
+    
+    <!-- Confirm Cancel Tournament Modal -->
+    <div id="confirmCancelModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeConfirmCancelModal()">&times;</span>
+            <h3>Cancel Tournament</h3>
+            <p>Are you sure you want to cancel this tournament? This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeConfirmCancelModal()">No, Keep Tournament</button>
+                <button class="btn btn-danger" onclick="confirmCancelTournament()">Yes, Cancel Tournament</button>
+            </div>
+            <div id="cancelTournamentMessage"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tournament-detail-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .breadcrumbs {
+        margin-bottom: 20px;
+    }
+    
+    .breadcrumbs a {
+        color: #4285F4;
+        text-decoration: none;
+    }
+    
+    .tournament-profile-card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 30px;
+    }
+    
+    .tournament-header h1 {
+        margin: 0 0 5px 0;
+        color: #333;
+    }
+    
+    .tournament-meta {
+        color: #666;
+        margin: 0 0 10px 0;
+    }
+    
+    .tournament-description {
+        color: #333;
+        margin: 10px 0;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+    }
+    
+    .badge-scheduled {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .badge-in_progress {
+        background-color: #cce5ff;
+        color: #004085;
+    }
+    
+    .badge-completed {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .badge-cancelled {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    hr {
+        border: 0;
+        height: 1px;
+        background-color: #eee;
+        margin: 20px 0;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .participants-list, .matches-list {
+        margin-top: 20px;
+    }
+    
+    .participant-card, .match-card {
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        background-color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .participant-info h5, .match-info h5 {
+        margin: 0 0 5px 0;
+    }
+    
+    .btn {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-primary {
+        background-color: #4285F4;
+        color: white;
+    }
+    
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+    
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+    }
+    
+    .modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 20px;
+        border-radius: 8px;
+        width: 60%;
+        max-width: 500px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .search-container {
+        display: flex;
+        margin-bottom: 20px;
+    }
+    
+    .search-container input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px 0 0 4px;
+    }
+    
+    .search-container button {
+        padding: 8px 15px;
+        background-color: #4285F4;
+        color: white;
+        border: none;
+        border-radius: 0 4px 4px 0;
+        cursor: pointer;
+    }
+    
+    .search-results {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .search-result-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+    
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+</style>
+
+<script>
+    // Function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Function to load tournament participants
+    function loadTournamentParticipants() {
+        console.log("Fetching tournament details...");
+        fetch(`/users/api/tournaments/{{ tournament.id }}/`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Tournament data:", data);
+                const participantsList = document.getElementById('tournamentParticipantsList');
+                
+                if (!data.participants || data.participants.length === 0) {
+                    console.log("No participants found");
+                    participantsList.innerHTML = `
+                        <div class="no-participants-message">
+                            No bots in this tournament yet. Add bots using the button above.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                console.log(`Found ${data.participants.length} participants`);
+                let html = '';
+                
+                data.participants.forEach(participant => {
+                    html += `
+                        <div class="participant-card">
+                            <div class="participant-info">
+                                <h5>${participant.bot_name}</h5>
+                                <p>Owner: ${participant.owner_email}</p>
+                                <p>Score: ${participant.score}</p>
+                            </div>
+                            {% if tournament.status == 'scheduled' %}
+                            <div class="participant-actions">
+                                <button class="btn btn-danger" onclick="removeParticipant('${participant.bot_id}')">
+                                    Remove
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    `;
+                });
+                
+                participantsList.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading tournament participants:', error);
+                document.getElementById('tournamentParticipantsList').innerHTML = `
+                    <p>Error loading participants. Please try again later.</p>
+                `;
+            });
+    }
+    
+    // Function to load tournament matches
+    function loadTournamentMatches() {
+        fetch(`/users/api/tournaments/{{ tournament.id }}/`)
+            .then(response => response.json())
+            .then(data => {
+                const matchesList = document.getElementById('tournamentMatchesList');
+                
+                if (!data.matches || data.matches.length === 0) {
+                    matchesList.innerHTML = `
+                        <div class="no-matches-message">
+                            No matches have been created yet. 
+                            {% if tournament.status == 'scheduled' %}
+                            Start the tournament to generate matches.
+                            {% endif %}
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                
+                data.matches.forEach(match => {
+                    // Determine result display
+                    let resultDisplay = 'Pending';
+                    if (match.result === 'white_win') {
+                        resultDisplay = `${match.white_bot_name} won`;
+                    } else if (match.result === 'black_win') {
+                        resultDisplay = `${match.black_bot_name} won`;
+                    } else if (match.result === 'draw') {
+                        resultDisplay = 'Draw';
+                    } else if (match.result === 'timeout') {
+                        resultDisplay = 'Timeout';
+                    } else if (match.result === 'error') {
+                        resultDisplay = 'Error';
+                    }
+                    
+                    html += `
+                        <div class="match-card">
+                            <div class="match-info">
+                                <h5>${match.white_bot_name} vs ${match.black_bot_name}</h5>
+                                <p>Status: ${match.status}</p>
+                                <p>Result: ${resultDisplay}</p>
+                                ${match.round ? `<p>Round: ${match.round}</p>` : ''}
+                            </div>
+                            <div class="match-actions">
+                                ${match.pgn_file ? `
+                                <a href="${match.pgn_file}" class="btn btn-primary" target="_blank">
+                                    View PGN
+                                </a>
+                                ` : ''}
+                                ${match.log_file ? `
+                                <a href="${match.log_file}" class="btn btn-secondary" target="_blank">
+                                    View Log
+                                </a>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                matchesList.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading tournament matches:', error);
+                document.getElementById('tournamentMatchesList').innerHTML = `
+                    <p>Error loading matches. Please try again later.</p>
+                `;
+            });
+    }
+    
+    // Modal functions
+    function openAddParticipantModal() {
+        document.getElementById('addParticipantModal').style.display = 'block';
+        document.getElementById('botSearchInput').value = '';
+        document.getElementById('searchResults').innerHTML = '';
+        document.getElementById('addParticipantMessage').innerHTML = '';
+    }
+    
+    function closeAddParticipantModal() {
+        document.getElementById('addParticipantModal').style.display = 'none';
+    }
+    
+    function openCancelTournamentModal() {
+        document.getElementById('confirmCancelModal').style.display = 'block';
+    }
+    
+    function closeConfirmCancelModal() {
+        document.getElementById('confirmCancelModal').style.display = 'none';
+        document.getElementById('cancelTournamentMessage').innerHTML = '';
+    }
+    
+    function searchBots() {
+        const searchInput = document.getElementById('botSearchInput').value;
+        if (!searchInput) {
+            document.getElementById('searchResults').innerHTML = 
+                '<p>Please enter a search term.</p>';
+            return;
+        }
+        
+        fetch(`/users/api/bots/?search=${encodeURIComponent(searchInput)}&status=active`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    document.getElementById('searchResults').innerHTML = 
+                        '<p>No active bots found matching your search.</p>';
+                    return;
+                }
+                
+                let html = '';
+                data.forEach(bot => {
+                    html += `
+                        <div class="search-result-item">
+                            <div>${bot.name} (${bot.owner_email})</div>
+                            <button class="btn btn-primary" onclick="addParticipant('${bot.id}')">
+                                Add
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('searchResults').innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error searching bots:', error);
+                document.getElementById('searchResults').innerHTML = 
+                    '<p>Error searching bots. Please try again.</p>';
+            });
+    }
+    
+    function addParticipant(botId) {
+        fetch(`/users/api/tournaments/{{ tournament.id }}/add_participant/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ bot_id: botId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                document.getElementById('addParticipantMessage').innerHTML = 
+                    `<div style="color:green">${data.message}</div>`;
+                
+                // Reload participants list and close modal after a delay
+                loadTournamentParticipants();
+                setTimeout(() => {
+                    closeAddParticipantModal();
+                }, 1500);
+            } else if (data.error) {
+                document.getElementById('addParticipantMessage').innerHTML = 
+                    `<div style="color:red">${data.error}</div>`;
+            }
+            
+            // Log the full response for debugging
+            console.log('Server response:', data);
+        })
+        .catch(error => {
+            console.error('Error adding bot to tournament:', error);
+            document.getElementById('addParticipantMessage').innerHTML = 
+                '<div style="color:red">Error adding bot to tournament. Please try again.</div>';
+        });
+    }
+    
+    function removeParticipant(botId) {
+        if (!confirm('Are you sure you want to remove this bot from the tournament?')) {
+            return;
+        }
+        
+        fetch(`/users/api/tournaments/{{ tournament.id }}/remove_participant/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ bot_id: botId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                loadTournamentParticipants();
+            } else if (data.error) {
+                alert(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error removing bot from tournament:', error);
+            alert('Error removing bot from tournament. Please try again.');
+        });
+    }
+    
+    function startTournament() {
+        if (!confirm('Are you sure you want to start this tournament? This will generate all matches and cannot be undone.')) {
+            return;
+        }
+        
+        // Default to using rounds (change this if you want different behavior)
+        const useRounds = true;
+        const doubleRoundRobin = false;
+        
+        fetch(`/users/api/tournaments/{{ tournament.id }}/start_tournament/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ 
+                use_rounds: useRounds,
+                double_round_robin: doubleRoundRobin
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                // Reload the page to reflect the new tournament status
+                window.location.reload();
+            } else if (data.error) {
+                alert(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error starting tournament:', error);
+            alert('Error starting tournament. Please try again.');
+        });
+    }
+    
+    function confirmCancelTournament() {
+        fetch(`/users/api/tournaments/{{ tournament.id }}/cancel/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                document.getElementById('cancelTournamentMessage').innerHTML = 
+                    `<div style="color:green">${data.message}</div>`;
+                
+                // Reload page after a delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else if (data.error) {
+                document.getElementById('cancelTournamentMessage').innerHTML = 
+                    `<div style="color:red">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error cancelling tournament:', error);
+            document.getElementById('cancelTournamentMessage').innerHTML = 
+                '<div style="color:red">Error cancelling tournament. Please try again.</div>';
+        });
+    }
+    
+    // Load tournament data when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadTournamentParticipants();
+        loadTournamentMatches();
+        
+        // Allow searching bots with Enter key
+        document.getElementById('botSearchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchBots();
+            }
+        });
+    });
+</script>
+{% endblock %}

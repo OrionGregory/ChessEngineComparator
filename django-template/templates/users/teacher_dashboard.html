@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div id="authWarning" style="display:none; background-color: #f8d7da; color: #721c24; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+    <strong>Warning:</strong> You are not properly authenticated as a teacher. Some features may not work.
+</div>
+
 <div class="dashboard-container">
     <h1>Teacher Dashboard</h1>
     
@@ -460,6 +464,16 @@
     
     // Form submission handlers
     document.addEventListener('DOMContentLoaded', function() {
+        // Check authentication status
+        fetch('/users/api/auth-status/', { credentials: 'include' })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Authentication status:', data);
+                if (!data.authenticated || data.role !== 'teacher') {
+                    document.getElementById('authWarning').style.display = 'block';
+                }
+            });
+
         // Load students by default
         loadStudents();
         
@@ -517,8 +531,14 @@
             const formData = new FormData(this);
             const jsonData = {};
             formData.forEach((value, key) => {
-                jsonData[key] = value || null; // Handle empty scheduled_at
+                // Only add non-empty values to avoid sending empty strings for optional fields
+                if (value) {
+                    jsonData[key] = value;
+                }
             });
+            
+            // Debug what's being sent
+            console.log('Sending tournament data:', jsonData);
             
             fetch('/users/api/tournaments/', {
                 method: 'POST',
@@ -528,8 +548,14 @@
                 },
                 body: JSON.stringify(jsonData)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    console.error('Error response:', response.status, response.statusText);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Server response:', data);
                 if (data.id) {
                     document.getElementById('createTournamentMessage').innerHTML = 
                         '<div style="color:green">Tournament created successfully!</div>';
