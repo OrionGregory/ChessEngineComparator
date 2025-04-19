@@ -203,8 +203,8 @@ SIMPLE_JWT = {
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'APP': {
-            'client_id': '894499320278-bfde04dv6rq8e16a43c37tbn18ess85r.apps.googleusercontent.com',
-            'secret': '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',
+            'client_id': os.environ.get('GOOGLE_CLIENT_ID', ''),
+            'secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''),
         },
         'SCOPE': ['profile', 'email'],
         'AUTH_PARAMS': {'access_type': 'online'},
