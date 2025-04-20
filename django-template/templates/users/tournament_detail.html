@@ -492,9 +492,9 @@
                 document.getElementById('deleteTournamentMessage').innerHTML = 
                     `<div style="color:green">${data.message}</div>`;
                 
-                // Redirect to teacher dashboard after a delay - fix the URL
+                // Redirect to teacher dashboard after a delay
                 setTimeout(() => {
-                    window.location.href = '/users/teacher-dashboard/';
+                    window.location.href = '{% url "teacher_dashboard" %}';
                 }, 1500);
             } else if (data.error) {
                 document.getElementById('deleteTournamentMessage').innerHTML = 
