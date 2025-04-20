@@ -1,0 +1,6 @@
+Chess match started at 2025-04-19 23:49:01.679574
+White: AdvancedBot1 (v1)
+Black: AdvancedBot (v1)
+
+Move 1 (White): h2h4
+Move 2 (Black): Invalid move by Black. None

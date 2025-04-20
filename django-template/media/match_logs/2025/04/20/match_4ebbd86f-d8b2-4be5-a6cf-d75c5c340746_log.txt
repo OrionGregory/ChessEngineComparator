@@ -1,0 +1,17 @@
+Chess match started at 2025-04-20 00:11:03.642519+00:00
+White: kjhkjhg (v1)
+Black: fdsafdsa (v1)
+
+Move 1 (White): g2g3
+
+Opponent board state mismatch for kjhkjhg!
+Bot's board: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+Master board: rnbqkbnr/pppppppp/8/8/8/6P1/PPPPPP1P/RNBQKBNR b KQkq - 0 1
+Fixed opponent board state for kjhkjhg
+Failed to update opponent's board: push() expects move to be pseudo-legal, but got g2g3 in rnbqkbnr/pppppppp/8/8/8/6P1/PPPPPP1P/RNBQKBNR
+
+Board state for kjhkjhg before move:
+FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+Turn: White
+Legal moves: ['g1h3', 'g1f3', 'b1c3', 'b1a3', 'h2h3', 'g2g3', 'f2f3', 'e2e3', 'd2d3', 'c2c3', 'b2b3', 'a2a3', 'h2h4', 'g2g4', 'f2f4', 'e2e4', 'd2d4', 'c2c4', 'b2b4', 'a2a4']
+Bot kjhkjhg selected move: g2g3

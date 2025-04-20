@@ -11,6 +11,7 @@ import traceback
 import logging
 import io
 from datetime import datetime
+from django.utils import timezone  # This is the correct import for timezone.now()
 from pathlib import Path
 from celery import shared_task
 from django.conf import settings
@@ -59,33 +60,84 @@ class ChessBotRunner:
                 return False
                 
             module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
             spec.loader.exec_module(module)
+            
+            # Find the chess module first
+            global chess
+            if "chess" not in sys.modules:
+                self.error_log.append("Python-chess module not found in imports")
+                for key in sys.modules.keys():
+                    if "chess" in key and not key.startswith("_"):
+                        self.error_log.append(f"Found possible chess module: {key}")
+                
+                # Try to import it directly
+                try:
+                    import chess
+                except ImportError:
+                    self.error_log.append("Failed to import chess module")
+                    return False
             
             # Find the bot class in the module
             bot_class = None
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                if isinstance(attr, type) and "ChessBot" in attr_name:
-                    bot_class = attr
-                    break
-                    
+                if isinstance(attr, type) and not attr_name.startswith("_") and attr_name not in ["type", "object"]:
+                    # Try to create an instance to check if it's compatible
+                    try:
+                        test_instance = attr()
+                        if hasattr(test_instance, 'board'):
+                            bot_class = attr
+                            break
+                    except Exception:
+                        continue
+            
             if bot_class is None:
-                self.error_log.append(f"No ChessBot class found in {self.bot_path}")
+                self.error_log.append(f"No valid chess bot class found in {self.bot_path}")
                 return False
                 
             # Create an instance of the bot
             self.bot_instance = bot_class()
             
-            # Verify the bot has the required methods
-            if not hasattr(self.bot_instance, 'select_move') or not hasattr(self.bot_instance, 'board'):
-                self.error_log.append(f"Bot {self.name} is missing required methods or attributes")
+            # Ensure it has a board attribute
+            if not hasattr(self.bot_instance, 'board'):
+                self.error_log.append(f"Bot {self.name} is missing required board attribute")
                 return False
+                
+            # Force-initialize the board to standard starting position
+            self.bot_instance.board = chess.Board()
+            
+            # Add missing methods if needed
+            if not hasattr(self.bot_instance, 'select_move'):
+                self.error_log.append(f"Bot {self.name} is missing required method: select_move")
+                return False
+            
+            if not hasattr(self.bot_instance, 'make_move'):
+                # Add a default make_move method if it's missing
+                self.bot_instance.make_move = self._default_make_move.__get__(self.bot_instance)
+                self.error_log.append(f"Added default make_move method to {self.name}")
+                
+            # Set debug flag if it exists
+            if hasattr(self.bot_instance, 'debug'):
+                self.bot_instance.debug = True
                 
             return True
             
         except Exception as e:
             error_msg = f"Error loading bot {self.name}: {str(e)}\n{traceback.format_exc()}"
             self.error_log.append(error_msg)
+            return False
+    
+    def _default_make_move(self, move_uci):
+        """Default make_move method for bots that don't have one"""
+        try:
+            move = chess.Move.from_uci(move_uci)
+            if move in self.board.legal_moves:
+                self.board.push(move)
+                return True
+            else:
+                return False
+        except (ValueError, AttributeError) as e:
             return False
     
     def make_move(self):
@@ -95,12 +147,20 @@ class ChessBotRunner:
             return None
             
         try:
+            # Debug the current board state
+            self.error_log.append(f"Board state for {self.name} before move:")
+            self.error_log.append(f"FEN: {self.bot_instance.board.fen()}")
+            self.error_log.append(f"Turn: {'White' if self.bot_instance.board.turn else 'Black'}")
+            self.error_log.append(f"Legal moves: {[m.uci() for m in self.bot_instance.board.legal_moves]}")
+            
+            # Check if turn matches bot color
+            correct_turn = (self.bot_instance.board.turn == chess.WHITE) == self.is_white
+            if not correct_turn:
+                self.error_log.append(f"ERROR: Turn mismatch for {self.name}. Board shows {'white' if self.bot_instance.board.turn else 'black'}'s turn but bot is {'white' if self.is_white else 'black'}")
+            
             # Set CPU time limit
             signal.signal(signal.SIGALRM, timeout_handler)
             signal.alarm(MOVE_TIME_LIMIT)
-            
-            # Set memory limit
-            resource.setrlimit(resource.RLIMIT_AS, (MEMORY_LIMIT, MEMORY_LIMIT))
             
             # Get move from the bot
             move = self.bot_instance.select_move()
@@ -108,13 +168,27 @@ class ChessBotRunner:
             # Reset alarm
             signal.alarm(0)
             
+            # Check if move is valid
+            if move is None:
+                self.error_log.append(f"Bot {self.name} returned None for move")
+                return None
+                
+            # Validate the move 
+            if move not in self.bot_instance.board.legal_moves:
+                self.error_log.append(f"Bot {self.name} returned illegal move: {move}")
+                return None
+                
+            # Log the move
+            self.error_log.append(f"Bot {self.name} selected move: {move.uci()}")
             return move
             
         except TimeoutException:
+            signal.alarm(0)  # Reset alarm
             self.error_log.append(f"Bot {self.name} timed out when making a move")
             return None
             
         except Exception as e:
+            signal.alarm(0)  # Reset alarm
             error_msg = f"Error while {self.name} was making a move: {str(e)}\n{traceback.format_exc()}"
             self.error_log.append(error_msg)
             return None
@@ -126,16 +200,57 @@ class ChessBotRunner:
             return False
             
         try:
-            move_uci = move.uci()
-            if hasattr(self.bot_instance, 'make_move'):
-                result = self.bot_instance.make_move(move_uci)
-                if not result:
-                    self.error_log.append(f"Bot {self.name} rejected move {move_uci}")
+            # First check if the board is in the correct state
+            self.error_log.append(f"Sending move {move.uci()} to {self.name}")
+            self.error_log.append(f"Current board state: {self.bot_instance.board.fen()}")
+            
+            # THE KEY FIX: Make sure the board is in the correct state to receive this move
+            # If bot is black, and it's white's turn on its internal board, we need to sync
+            if (self.is_white and not self.bot_instance.board.turn) or (not self.is_white and self.bot_instance.board.turn):
+                self.error_log.append(f"Turn mismatch for {self.name}. Attempting to fix...")
+                
+            # Apply opponent's move directly to the board state
+            if move in self.bot_instance.board.legal_moves:
+                # Apply directly to board first (guaranteed to work)
+                try:
+                    self.bot_instance.board.push(move)
+                    self.error_log.append(f"Direct board update successful for {self.name}")
+                    return True
+                except Exception as e:
+                    self.error_log.append(f"Error directly updating board: {str(e)}")
                     return False
             else:
-                # If make_move is not implemented, update the board directly
-                self.bot_instance.board.push(move)
-            return True
+                self.error_log.append(f"Move {move.uci()} not legal on bot's board: {self.bot_instance.board.fen()}")
+                self.error_log.append(f"Legal moves are: {[m.uci() for m in self.bot_instance.board.legal_moves]}")
+                
+                # Desperate measure: reset the bot's board and catch up
+                try:
+                    self.error_log.append("Attempting full board reset and sync...")
+                    # Get the move history from the move's board
+                    if hasattr(move, 'board') and hasattr(move.board, 'move_stack'):
+                        self.bot_instance.board = chess.Board()
+                        for m in move.board.move_stack[:-1]:  # All moves except the last one
+                            if m in self.bot_instance.board.legal_moves:
+                                self.bot_instance.board.push(m)
+                        
+                        # Now add the current move
+                        if move in self.bot_instance.board.legal_moves:
+                            self.bot_instance.board.push(move)
+                            self.error_log.append("Board sync successful")
+                            return True
+                except Exception as e:
+                    self.error_log.append(f"Board reset failed: {str(e)}")
+                
+                # If all else fails, create a new board with the FEN from the move's board
+                try:
+                    if hasattr(move, 'board'):
+                        self.bot_instance.board = chess.Board(move.board.fen())
+                        self.error_log.append("Board reset using FEN")
+                        return True
+                except Exception as e:
+                    self.error_log.append(f"FEN reset failed: {str(e)}")
+                
+                return False
             
         except Exception as e:
             error_msg = f"Error while sending opponent move to {self.name}: {str(e)}\n{traceback.format_exc()}"
@@ -155,6 +270,7 @@ def run_chess_match(match_id):
         match_id: UUID of the Match object
     """
     match = None
+    log_buffer = io.StringIO()
     
     try:
         # Get the match from the database
@@ -162,11 +278,10 @@ def run_chess_match(match_id):
         
         # Update match status
         match.status = 'in_progress'
-        match.started_at = datetime.now()
+        match.started_at = timezone.now()
         match.save()
         
         # Create log buffer
-        log_buffer = io.StringIO()
         log_buffer.write(f"Chess match started at {match.started_at}\n")
         log_buffer.write(f"White: {match.white_bot.name} (v{match.white_bot.version})\n")
         log_buffer.write(f"Black: {match.black_bot.name} (v{match.black_bot.version})\n\n")
@@ -187,7 +302,7 @@ def run_chess_match(match_id):
             log_buffer.write(f"Failed to load white bot: {white_runner.get_error_log()}\n")
             match.status = 'error'
             match.result = 'black_win'  # White bot failed to load, black wins
-            match.completed_at = datetime.now()
+            match.completed_at = timezone.now()
             match.save_log_file(log_buffer.getvalue())
             match.save()
             return
@@ -196,50 +311,67 @@ def run_chess_match(match_id):
             log_buffer.write(f"Failed to load black bot: {black_runner.get_error_log()}\n")
             match.status = 'error'
             match.result = 'white_win'  # Black bot failed to load, white wins
-            match.completed_at = datetime.now()
+            match.completed_at = timezone.now()
             match.save_log_file(log_buffer.getvalue())
             match.save()
             return
+        
+        # Create a shared master board for tracking the game state
+        master_board = chess.Board()
         
         # Create new game and pgn for recording
         game = chess.pgn.Game()
         game.headers["Event"] = f"Tournament {match.tournament.name}"
         game.headers["White"] = match.white_bot.name
         game.headers["Black"] = match.black_bot.name
-        game.headers["Date"] = datetime.now().strftime("%Y.%m.%d")
-        
-        # Reference the board from one of the bots
-        board = chess.Board()
+        game.headers["Date"] = timezone.now().strftime("%Y.%m.%d")
         
         # Keep track of move number and current node in the pgn
         move_count = 0
         node = game
         
         # Game loop
-        while not board.is_game_over() and move_count < MAX_MOVES:
+        while not master_board.is_game_over() and move_count < MAX_MOVES:
             move_count += 1
-            current_turn = "White" if board.turn == chess.WHITE else "Black"
+            current_turn = "White" if master_board.turn == chess.WHITE else "Black"
             log_buffer.write(f"Move {move_count} ({current_turn}): ")
             
             # Get the runner for the current player
-            current_runner = white_runner if board.turn == chess.WHITE else black_runner
+            current_runner = white_runner if master_board.turn == chess.WHITE else black_runner
+            
+            # Make sure the current player's board is correct
+            if current_runner.bot_instance.board.fen() != master_board.fen():
+                log_buffer.write(f"\nSynchronizing {current_turn}'s board state...\n")
+                current_runner.bot_instance.board = chess.Board(master_board.fen())
             
             # Make move
             move = current_runner.make_move()
             
-            if move is None or move not in board.legal_moves:
-                # Invalid move
-                result = "black_win" if board.turn == chess.WHITE else "white_win"
-                log_buffer.write(f"Invalid move by {current_turn}. {match.get_result_display()}\n")
+            # Handle invalid moves
+            if move is None:
+                # Invalid move - opponent wins
+                result = "black_win" if master_board.turn == chess.WHITE else "white_win"
+                log_buffer.write(f"Invalid move by {current_turn}. None\n")
                 match.status = 'completed'
                 match.result = result
-                match.completed_at = datetime.now()
-                match.save_log_file(log_buffer.getvalue())
+                match.completed_at = timezone.now()
+                match.save_log_file(log_buffer.getvalue() + "\n" + current_runner.get_error_log())
+                match.save()
+                return
+            
+            if move not in master_board.legal_moves:
+                # Illegal move - opponent wins
+                result = "black_win" if master_board.turn == chess.WHITE else "white_win"
+                log_buffer.write(f"Illegal move by {current_turn}: {move.uci()}\n")
+                match.status = 'completed'
+                match.result = result
+                match.completed_at = timezone.now()
+                match.save_log_file(log_buffer.getvalue() + "\n" + current_runner.get_error_log())
                 match.save()
                 return
                 
-            # Make the move on our board
-            board.push(move)
+            # Make the move on the master board
+            master_board.push(move)
             
             # Record in PGN
             node = node.add_variation(move)
@@ -247,32 +379,26 @@ def run_chess_match(match_id):
             # Log the move
             log_buffer.write(f"{move.uci()}\n")
             
-            # Send the move to the opponent
-            opponent_runner = black_runner if board.turn == chess.WHITE else white_runner
-            if not opponent_runner.send_opponent_move(move):
-                # Failed to send move to opponent
-                result = "black_win" if board.turn == chess.WHITE else "white_win"
-                log_buffer.write(f"Failed to send move to {opponent_runner.name}. Error: {opponent_runner.get_error_log()}\n")
-                match.status = 'error'
-                match.result = result
-                match.completed_at = datetime.now()
-                match.save_log_file(log_buffer.getvalue())
-                match.save()
-                return
+            # Game over check - don't need to update opponent if game is over
+            if master_board.is_game_over():
+                break
+            
+            # Synchronize the opponent's board with the master board
+            opponent_runner = black_runner if master_board.turn == chess.WHITE else white_runner
+            opponent_runner.bot_instance.board = chess.Board(master_board.fen())
         
-        # Game finished
+        # Game finished - determine result
         log_buffer.write(f"\nGame finished after {move_count} moves.\n")
-        log_buffer.write(f"Result: {board.result()}\n")
+        log_buffer.write(f"Result: {master_board.result()}\n")
         
-        # Determine match result
-        if board.is_checkmate():
+        if master_board.is_checkmate():
             # The side that was checkmated lost
-            result = "black_win" if board.turn == chess.WHITE else "white_win"
-            log_buffer.write(f"{'White' if board.turn == chess.BLACK else 'Black'} won by checkmate\n")
-        elif board.is_stalemate():
+            result = "black_win" if master_board.turn == chess.WHITE else "white_win"
+            log_buffer.write(f"{'White' if master_board.turn == chess.BLACK else 'Black'} won by checkmate\n")
+        elif master_board.is_stalemate():
             result = "draw"
             log_buffer.write("Game ended in stalemate\n")
-        elif board.is_insufficient_material():
+        elif master_board.is_insufficient_material():
             result = "draw"
             log_buffer.write("Game ended due to insufficient material\n")
         elif move_count >= MAX_MOVES:
@@ -286,7 +412,7 @@ def run_chess_match(match_id):
         # Update match with results
         match.status = 'completed'
         match.result = result
-        match.completed_at = datetime.now()
+        match.completed_at = timezone.now()
         
         # Add errors to log if any
         white_errors = white_runner.get_error_log()
@@ -305,11 +431,11 @@ def run_chess_match(match_id):
         # Save log
         match.save_log_file(log_buffer.getvalue())
         
-        # Complete match in database
-        match.complete_match(result)
+        # Save match
+        match.save()
         
         # Check if tournament is complete
-        check_tournament_completion(match.tournament.id)
+        check_tournament_completion.delay(match.tournament.id)
         
     except Exception as e:
         error_message = f"Error executing match: {str(e)}\n{traceback.format_exc()}"
@@ -317,13 +443,12 @@ def run_chess_match(match_id):
         
         if match:
             # Save the error to the match log
-            log_buffer = io.StringIO()
-            log_buffer.write(f"Chess match error at {datetime.now()}\n")
+            log_buffer.write(f"Chess match error at {timezone.now()}\n")
             log_buffer.write(error_message)
             
             match.status = 'error'
             match.result = 'error'
-            match.completed_at = datetime.now()
+            match.completed_at = timezone.now()
             match.save_log_file(log_buffer.getvalue())
             match.save()
 

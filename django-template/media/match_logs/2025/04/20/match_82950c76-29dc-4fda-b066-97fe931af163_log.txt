@@ -1,0 +1,6 @@
+Chess match started at 2025-04-20 00:03:57.310673
+White: kjhkjhg (v1)
+Black: fdsafdsa (v1)
+
+Move 1 (White): a2a3
+Move 2 (Black): Invalid move by Black. None
