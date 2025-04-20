@@ -96,6 +96,20 @@
     </div>
 </div>
 
+<!-- Add delete tournament modal -->
+<div id="confirmDeleteModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeConfirmDeleteModal()">&times;</span>
+        <h3>Delete Tournament</h3>
+        <p id="deleteTournamentConfirmText">Are you sure you want to permanently delete this tournament?</p>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeConfirmDeleteModal()">No, Keep Tournament</button>
+            <button class="btn btn-danger" id="confirmDeleteButton">Yes, Delete Tournament</button>
+        </div>
+        <div id="deleteTournamentMessage"></div>
+    </div>
+</div>
+
 <style>
     .dashboard-container {
         max-width: 1200px;
@@ -220,6 +234,58 @@
     }
     
     /* Keep existing modal styles */
+    
+    /* Enhanced modal styles to ensure proper popup display */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+    }
+    
+    .modal-content {
+        position: relative;
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        border-radius: 8px;
+        width: 50%;
+        max-width: 500px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        animation: modalopen 0.4s;
+    }
+    
+    @keyframes modalopen {
+        from {opacity: 0; transform: translateY(-50px);}
+        to {opacity: 1; transform: translateY(0);}
+    }
+    
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+    }
+    
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
 </style>
 
 <script>
@@ -443,6 +509,9 @@
                                 <button class="btn btn-secondary" onclick="viewTournamentDetails('${tournament.id}')">
                                     Manage Tournament
                                 </button>
+                                <button class="btn btn-danger" onclick="openDeleteTournamentModal('${tournament.id}', '${tournament.name}')">
+                                    Delete
+                                </button>
                             </div>
                         </div>
                     `;
@@ -583,5 +652,62 @@
             });
         });
     });
+    
+    // Add these functions to handle tournament deletion from the dashboard
+    function openDeleteTournamentModal(tournamentId, tournamentName) {
+        document.getElementById('deleteTournamentConfirmText').innerHTML = 
+            `Are you sure you want to permanently delete tournament <strong>${tournamentName}</strong>? This will remove all matches, results, and participant data. This action cannot be undone.`;
+        
+        // Set up the delete button to work with the selected tournament
+        document.getElementById('confirmDeleteButton').onclick = function() {
+            confirmDeleteTournament(tournamentId);
+        };
+        
+        document.getElementById('confirmDeleteModal').style.display = 'block';
+    }
+    
+    function closeConfirmDeleteModal() {
+        document.getElementById('confirmDeleteModal').style.display = 'none';
+        document.getElementById('deleteTournamentMessage').innerHTML = '';
+    }
+    
+    function confirmDeleteTournament(tournamentId) {
+        console.log("Attempting to delete tournament...", tournamentId);
+        fetch(`/users/api/tournaments/${tournamentId}/delete_tournament/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            console.log("Response status:", response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Response data:", data);
+            if (data.message) {
+                document.getElementById('deleteTournamentMessage').innerHTML = 
+                    `<div style="color:green">${data.message}</div>`;
+                
+                // Reload the tournaments list after a delay
+                setTimeout(() => {
+                    loadTournaments();
+                    closeConfirmDeleteModal();
+                }, 1500);
+            } else if (data.error) {
+                document.getElementById('deleteTournamentMessage').innerHTML = 
+                    `<div style="color:red">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting tournament:', error);
+            document.getElementById('deleteTournamentMessage').innerHTML = 
+                '<div style="color:red">Error deleting tournament. Please try again.</div>';
+        });
+    }
 </script>
 {% endblock %}
