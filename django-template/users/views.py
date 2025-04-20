@@ -646,6 +646,44 @@ class TournamentViewSet(viewsets.ModelViewSet):
         tournament.cancel_tournament()
         
         return Response({"message": "Tournament cancelled successfully"})
+        
+    @action(detail=True, methods=['delete', 'post'])
+    def delete_tournament(self, request, pk=None):
+        """Delete a tournament and all related data"""
+        tournament = self.get_object()
+        
+        # Check if the user is the tournament creator
+        if tournament.created_by != request.user:
+            return Response({"error": "You can only delete tournaments that you created"}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        # Store the name for the response message
+        tournament_name = tournament.name
+        
+        try:
+            # Print debug information
+            print(f"Deleting tournament: {tournament_name} (ID: {tournament.id})")
+            
+            # Delete all related matches and participants first (will cascade in most cases)
+            match_count = Match.objects.filter(tournament=tournament).count()
+            participant_count = TournamentParticipant.objects.filter(tournament=tournament).count()
+            
+            print(f"Found {match_count} matches and {participant_count} participants to delete")
+            
+            Match.objects.filter(tournament=tournament).delete()
+            TournamentParticipant.objects.filter(tournament=tournament).delete()
+            
+            # Delete the tournament itself
+            tournament.delete()
+            print(f"Tournament {tournament_name} successfully deleted")
+            
+            return Response({"message": f"Tournament '{tournament_name}' deleted successfully"})
+        except Exception as e:
+            print(f"Error deleting tournament: {str(e)}")
+            return Response(
+                {"error": f"Error deleting tournament: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class MatchViewSet(viewsets.ModelViewSet):
     """API endpoint for managing matches"""

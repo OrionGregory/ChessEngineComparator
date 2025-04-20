@@ -21,14 +21,16 @@
         
         <hr>
         
-        {% if tournament.status == 'scheduled' %}
         <div class="tournament-actions">
-            <button class="btn btn-primary" onclick="startTournament()">Start Tournament</button>
-            <button class="btn btn-danger" onclick="openCancelTournamentModal()">Cancel Tournament</button>
+            {% if tournament.status == 'scheduled' %}
+                <button class="btn btn-primary" onclick="startTournament()">Start Tournament</button>
+                <button class="btn btn-danger" onclick="openCancelTournamentModal()">Cancel Tournament</button>
+            {% endif %}
+            <!-- Add a delete button that's always visible -->
+            <button class="btn btn-danger" onclick="openDeleteTournamentModal()">Delete Tournament</button>
         </div>
         
         <hr>
-        {% endif %}
         
         <div class="tournament-participants-section">
             <div class="section-header">
@@ -80,6 +82,20 @@
                 <button class="btn btn-danger" onclick="confirmCancelTournament()">Yes, Cancel Tournament</button>
             </div>
             <div id="cancelTournamentMessage"></div>
+        </div>
+    </div>
+    
+    <!-- Confirm Delete Tournament Modal -->
+    <div id="confirmDeleteModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeConfirmDeleteModal()">&times;</span>
+            <h3>Delete Tournament</h3>
+            <p>Are you sure you want to permanently delete this tournament? This will remove all matches, results, and participant data. This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeConfirmDeleteModal()">No, Keep Tournament</button>
+                <button class="btn btn-danger" onclick="confirmDeleteTournament()">Yes, Delete Tournament</button>
+            </div>
+            <div id="deleteTournamentMessage"></div>
         </div>
     </div>
 </div>
@@ -443,6 +459,55 @@
         document.getElementById('cancelTournamentMessage').innerHTML = '';
     }
     
+    // Add these functions to handle the delete modal
+    function openDeleteTournamentModal() {
+        document.getElementById('confirmDeleteModal').style.display = 'block';
+    }
+    
+    function closeConfirmDeleteModal() {
+        document.getElementById('confirmDeleteModal').style.display = 'none';
+        document.getElementById('deleteTournamentMessage').innerHTML = '';
+    }
+    
+    // Modify the confirmDeleteTournament function to use the correct redirect URL
+    function confirmDeleteTournament() {
+        console.log("Attempting to delete tournament...");
+        fetch(`/users/api/tournaments/{{ tournament.id }}/delete_tournament/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            console.log("Response status:", response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Response data:", data);
+            if (data.message) {
+                document.getElementById('deleteTournamentMessage').innerHTML = 
+                    `<div style="color:green">${data.message}</div>`;
+                
+                // Redirect to teacher dashboard after a delay - fix the URL
+                setTimeout(() => {
+                    window.location.href = '/users/teacher-dashboard/';
+                }, 1500);
+            } else if (data.error) {
+                document.getElementById('deleteTournamentMessage').innerHTML = 
+                    `<div style="color:red">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting tournament:', error);
+            document.getElementById('deleteTournamentMessage').innerHTML = 
+                '<div style="color:red">Error deleting tournament. Please try again.</div>';
+        });
+    }
+    
     function searchBots() {
         const searchInput = document.getElementById('botSearchInput').value;
         if (!searchInput) {
@@ -607,6 +672,44 @@
             console.error('Error cancelling tournament:', error);
             document.getElementById('cancelTournamentMessage').innerHTML = 
                 '<div style="color:red">Error cancelling tournament. Please try again.</div>';
+        });
+    }
+
+    function confirmDeleteTournament() {
+        console.log("Attempting to delete tournament...");
+        fetch(`/users/api/tournaments/{{ tournament.id }}/delete_tournament/`, {
+            method: 'POST', // Changed from 'DELETE' to 'POST' for better compatibility
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            console.log("Response status:", response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Response data:", data);
+            if (data.message) {
+                document.getElementById('deleteTournamentMessage').innerHTML = 
+                    `<div style="color:green">${data.message}</div>`;
+                
+                // Redirect to teacher dashboard after a delay
+                setTimeout(() => {
+                    window.location.href = '/users/teacher-dashboard/';
+                }, 1500);
+            } else if (data.error) {
+                document.getElementById('deleteTournamentMessage').innerHTML = 
+                    `<div style="color:red">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting tournament:', error);
+            document.getElementById('deleteTournamentMessage').innerHTML = 
+                '<div style="color:red">Error deleting tournament. Please try again.</div>';
         });
     }
     

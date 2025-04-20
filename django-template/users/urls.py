@@ -29,4 +29,5 @@ urlpatterns = [
     path('tournament/<uuid:tournament_id>/', views.tournament_detail, name='tournament_detail'),
     
     path('api/', include(router.urls)),
+    path('', include(router.urls)),
 ]
