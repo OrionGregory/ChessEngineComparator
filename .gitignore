@@ -6,8 +6,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-.txt
-
+*.txt
+*.pgn
 # Byte-compiled / optimized / DLL files
 __pycache__/
 
