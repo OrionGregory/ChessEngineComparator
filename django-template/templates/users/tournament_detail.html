@@ -59,15 +59,26 @@
     <div id="addParticipantModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeAddParticipantModal()">&times;</span>
-            <h3>Add Bot to Tournament</h3>
+            <h3>Add Bots to Tournament</h3>
             <div class="search-container">
-                <input type="text" id="botSearchInput" placeholder="Search bots...">
-                <button onclick="searchBots()">Search</button>
+                <input type="text" id="botSearchInput" placeholder="Search bots..." oninput="filterBots()">
             </div>
-            <div id="searchResults" class="search-results">
-                <!-- Search results will be displayed here -->
+            <div class="bot-selection-info">
+                <p>Select bots to add to the tournament (only active bots shown):</p>
+                <div class="bot-selection-actions">
+                    <button id="toggleSelectAllBtn" class="btn btn-secondary" onclick="toggleSelectAll()">Select All</button>
+                    <span id="selectedCount" class="selected-count">0 selected</span>
+                </div>
+            </div>
+            <div id="allBotsContainer" class="search-results">
+                <!-- Bots will be loaded here -->
+                <p>Loading bots...</p>
             </div>
             <div id="addParticipantMessage"></div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="addSelectedBots()">Add Selected Bots</button>
+                <button class="btn btn-secondary" onclick="closeAddParticipantModal()">Close</button>
+            </div>
         </div>
     </div>
     
@@ -317,6 +328,10 @@
         return cookieValue;
     }
     
+    // Track current tournament bots and selection state
+    let currentTournamentBotIds = [];
+    let allBotsSelected = false;
+    
     // Function to load tournament participants
     function loadTournamentParticipants() {
         console.log("Fetching tournament details...");
@@ -324,6 +339,10 @@
             .then(response => response.json())
             .then(data => {
                 console.log("Tournament data:", data);
+                
+                // Store current tournament bot IDs
+                currentTournamentBotIds = data.participants ? data.participants.map(p => p.bot_id) : [];
+                
                 const participantsList = document.getElementById('tournamentParticipantsList');
                 
                 if (!data.participants || data.participants.length === 0) {
@@ -442,8 +461,8 @@
     function openAddParticipantModal() {
         document.getElementById('addParticipantModal').style.display = 'block';
         document.getElementById('botSearchInput').value = '';
-        document.getElementById('searchResults').innerHTML = '';
         document.getElementById('addParticipantMessage').innerHTML = '';
+        loadAllBots(); // Load all bots when opening modal
     }
     
     function closeAddParticipantModal() {
@@ -508,77 +527,263 @@
         });
     }
     
-    function searchBots() {
-        const searchInput = document.getElementById('botSearchInput').value;
-        if (!searchInput) {
-            document.getElementById('searchResults').innerHTML = 
-                '<p>Please enter a search term.</p>';
-            return;
-        }
-        
-        fetch(`/users/api/bots/?search=${encodeURIComponent(searchInput)}&status=active`)
+    // Function to load all active bots that aren't already in the tournament
+    function loadAllBots() {
+        fetch(`/users/api/bots/?status=active`)
             .then(response => response.json())
             .then(data => {
                 if (data.length === 0) {
-                    document.getElementById('searchResults').innerHTML = 
-                        '<p>No active bots found matching your search.</p>';
+                    document.getElementById('allBotsContainer').innerHTML = 
+                        '<p>No active bots found. Please make sure bots are marked as active.</p>';
+                    return;
+                }
+                
+                // Filter to ensure only active bots are shown
+                const activeBots = data.filter(bot => bot.status === 'active');
+                
+                // Filter out bots already in the tournament
+                const availableBots = activeBots.filter(bot => !currentTournamentBotIds.includes(bot.id));
+                
+                if (availableBots.length === 0) {
+                    document.getElementById('allBotsContainer').innerHTML = 
+                        '<p>All active bots have already been added to this tournament.</p>';
+                    updateSelectedCount(0);
                     return;
                 }
                 
                 let html = '';
-                data.forEach(bot => {
+                availableBots.forEach(bot => {
                     html += `
-                        <div class="search-result-item">
-                            <div>${bot.name} (${bot.owner_email})</div>
-                            <button class="btn btn-primary" onclick="addParticipant('${bot.id}')">
+                        <div class="search-result-item" data-bot-name="${bot.name.toLowerCase()}" data-owner="${bot.owner_email.toLowerCase()}">
+                            <div class="bot-info">
+                                <strong>${bot.name}</strong> (${bot.owner_email})
+                            </div>
+                            <button class="btn btn-primary" data-bot-id="${bot.id}" onclick="toggleBotSelection('${bot.id}', this)">
                                 Add
                             </button>
                         </div>
                     `;
                 });
                 
-                document.getElementById('searchResults').innerHTML = html;
+                document.getElementById('allBotsContainer').innerHTML = html;
+                updateSelectedCount(0);
+                
+                // Reset select all state
+                allBotsSelected = false;
+                document.getElementById('toggleSelectAllBtn').textContent = 'Select All';
             })
             .catch(error => {
-                console.error('Error searching bots:', error);
-                document.getElementById('searchResults').innerHTML = 
-                    '<p>Error searching bots. Please try again.</p>';
+                console.error('Error loading bots:', error);
+                document.getElementById('allBotsContainer').innerHTML = 
+                    '<p>Error loading bots. Please try again later.</p>';
+                updateSelectedCount(0);
             });
     }
     
-    function addParticipant(botId) {
-        fetch(`/users/api/tournaments/{{ tournament.id }}/add_participant/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({ bot_id: botId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.message) {
-                document.getElementById('addParticipantMessage').innerHTML = 
-                    `<div style="color:green">${data.message}</div>`;
+    // Toggle select all/deselect all
+    function toggleSelectAll() {
+        const buttons = document.querySelectorAll('#allBotsContainer .search-result-item button');
+        const toggleBtn = document.getElementById('toggleSelectAllBtn');
+        
+        // Only consider visible items when filtering is applied
+        const visibleButtons = Array.from(buttons).filter(btn => 
+            btn.closest('.search-result-item').style.display !== 'none');
+        
+        if (!visibleButtons.length) return;
+        
+        // Toggle state
+        allBotsSelected = !allBotsSelected;
+        
+        if (allBotsSelected) {
+            // Select all visible bots
+            visibleButtons.forEach(button => {
+                if (!button.classList.contains('selected')) {
+                    button.classList.add('selected');
+                    button.textContent = 'Remove';
+                }
+            });
+            toggleBtn.textContent = 'Deselect All';
+        } else {
+            // Deselect all
+            visibleButtons.forEach(button => {
+                if (button.classList.contains('selected')) {
+                    button.classList.remove('selected');
+                    button.textContent = 'Add';
+                }
+            });
+            toggleBtn.textContent = 'Select All';
+        }
+        
+        updateSelectedCount(document.querySelectorAll('#allBotsContainer .search-result-item button.selected').length);
+    }
+    
+    // Update selected count display
+    function updateSelectedCount(count) {
+        document.getElementById('selectedCount').textContent = `${count} selected`;
+    }
+    
+    // Function to toggle bot selection
+    function toggleBotSelection(botId, button) {
+        if (button.classList.contains('selected')) {
+            button.classList.remove('selected');
+            button.textContent = 'Add';
+        } else {
+            button.classList.add('selected');
+            button.textContent = 'Remove';
+        }
+        
+        const selectedCount = document.querySelectorAll('#allBotsContainer .search-result-item button.selected').length;
+        updateSelectedCount(selectedCount);
+        
+        // Update select all button text based on selection state
+        const visibleButtons = getVisibleButtons();
+        const selectedButtons = document.querySelectorAll('#allBotsContainer .search-result-item button.selected');
+        
+        if (visibleButtons.length === selectedButtons.length && visibleButtons.length > 0) {
+            document.getElementById('toggleSelectAllBtn').textContent = 'Deselect All';
+            allBotsSelected = true;
+        } else {
+            document.getElementById('toggleSelectAllBtn').textContent = 'Select All';
+            allBotsSelected = false;
+        }
+    }
+    
+    // Helper function to get visible buttons
+    function getVisibleButtons() {
+        const buttons = document.querySelectorAll('#allBotsContainer .search-result-item button');
+        return Array.from(buttons).filter(btn => 
+            btn.closest('.search-result-item').style.display !== 'none');
+    }
+    
+    // Function to add selected bots
+    function addSelectedBots() {
+        const selectedButtons = document.querySelectorAll('#allBotsContainer .search-result-item button.selected');
+        
+        if (selectedButtons.length === 0) {
+            document.getElementById('addParticipantMessage').innerHTML = 
+                '<div style="color:orange">Please select at least one bot to add.</div>';
+            return;
+        }
+        
+        document.getElementById('addParticipantMessage').innerHTML = 
+            '<div style="color:blue">Adding bots to tournament...</div>';
+        
+        // Get all bot IDs from selected buttons
+        const botIds = Array.from(selectedButtons).map(button => button.getAttribute('data-bot-id'));
+        
+        // Initialize tracking variables
+        let successCount = 0;
+        let failCount = 0;
+        let addedBotIds = [];
+        
+        // Create a function to add bots sequentially
+        async function addBotsSequentially() {
+            for (const botId of botIds) {
+                try {
+                    const response = await fetch(`/users/api/tournaments/{{ tournament.id }}/add_participant/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ bot_id: botId })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.message) {
+                        successCount++;
+                        addedBotIds.push(botId);
+                    } else if (data.error) {
+                        failCount++;
+                        console.error(`Error adding bot ${botId}: ${data.error}`);
+                    }
+                } catch (error) {
+                    failCount++;
+                    console.error(`Exception adding bot ${botId}: ${error}`);
+                }
                 
-                // Reload participants list and close modal after a delay
-                loadTournamentParticipants();
-                setTimeout(() => {
-                    closeAddParticipantModal();
-                }, 1500);
-            } else if (data.error) {
+                // Update message as we go
                 document.getElementById('addParticipantMessage').innerHTML = 
-                    `<div style="color:red">${data.error}</div>`;
+                    `<div style="color:blue">Added ${successCount}/${botIds.length} bots...</div>`;
             }
             
-            // Log the full response for debugging
-            console.log('Server response:', data);
-        })
-        .catch(error => {
-            console.error('Error adding bot to tournament:', error);
-            document.getElementById('addParticipantMessage').innerHTML = 
-                '<div style="color:red">Error adding bot to tournament. Please try again.</div>';
+            // Final success message
+            if (successCount > 0) {
+                document.getElementById('addParticipantMessage').innerHTML = 
+                    `<div style="color:green">Successfully added ${successCount} bot(s)${failCount > 0 ? `. Failed to add ${failCount} bot(s).` : ''}</div>`;
+                
+                // Update current tournament bots
+                currentTournamentBotIds = [...currentTournamentBotIds, ...addedBotIds];
+                
+                // Reload participants list
+                loadTournamentParticipants();
+                
+                // Remove added bots from the selection list
+                selectedButtons.forEach(button => {
+                    // Only remove if this button's bot ID was successfully added
+                    if (addedBotIds.includes(button.getAttribute('data-bot-id'))) {
+                        const item = button.closest('.search-result-item');
+                        if (item) {
+                            item.remove();
+                        }
+                    }
+                });
+                
+                // Update selected count
+                updateSelectedCount(0);
+                allBotsSelected = false;
+                document.getElementById('toggleSelectAllBtn').textContent = 'Select All';
+                
+                // If all bots added, show message
+                if (document.querySelectorAll('#allBotsContainer .search-result-item').length === 0) {
+                    document.getElementById('allBotsContainer').innerHTML = 
+                        '<p>All active bots have already been added to this tournament.</p>';
+                }
+            } else {
+                document.getElementById('addParticipantMessage').innerHTML = 
+                    '<div style="color:red">Failed to add any bots to the tournament.</div>';
+            }
+        }
+        
+        // Start the sequential addition process
+        addBotsSequentially();
+    }
+    
+    // Filter bots based on search input
+    function filterBots() {
+        const searchInput = document.getElementById('botSearchInput').value.toLowerCase();
+        const botItems = document.querySelectorAll('#allBotsContainer .search-result-item');
+        let visibleCount = 0;
+        
+        botItems.forEach(item => {
+            const botName = item.getAttribute('data-bot-name');
+            const ownerEmail = item.getAttribute('data-owner');
+            
+            if (botName.includes(searchInput) || ownerEmail.includes(searchInput)) {
+                item.style.display = 'flex';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
         });
+        
+        // Update select all button state based on visible items
+        updateSelectAllButtonAfterFilter();
+    }
+    
+    // Update select all button state after filtering
+    function updateSelectAllButtonAfterFilter() {
+        const visibleButtons = getVisibleButtons();
+        const selectedVisibleButtons = visibleButtons.filter(btn => btn.classList.contains('selected'));
+        
+        if (visibleButtons.length > 0 && visibleButtons.length === selectedVisibleButtons.length) {
+            document.getElementById('toggleSelectAllBtn').textContent = 'Deselect All';
+            allBotsSelected = true;
+        } else {
+            document.getElementById('toggleSelectAllBtn').textContent = 'Select All';
+            allBotsSelected = false;
+        }
     }
     
     function removeParticipant(botId) {
@@ -624,7 +829,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
                 use_rounds: useRounds,
                 double_round_robin: doubleRoundRobin
             })
@@ -674,44 +879,6 @@
                 '<div style="color:red">Error cancelling tournament. Please try again.</div>';
         });
     }
-
-    function confirmDeleteTournament() {
-        console.log("Attempting to delete tournament...");
-        fetch(`/users/api/tournaments/{{ tournament.id }}/delete_tournament/`, {
-            method: 'POST', // Changed from 'DELETE' to 'POST' for better compatibility
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            }
-        })
-        .then(response => {
-            console.log("Response status:", response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log("Response data:", data);
-            if (data.message) {
-                document.getElementById('deleteTournamentMessage').innerHTML = 
-                    `<div style="color:green">${data.message}</div>`;
-                
-                // Redirect to teacher dashboard after a delay
-                setTimeout(() => {
-                    window.location.href = '/users/teacher-dashboard/';
-                }, 1500);
-            } else if (data.error) {
-                document.getElementById('deleteTournamentMessage').innerHTML = 
-                    `<div style="color:red">${data.error}</div>`;
-            }
-        })
-        .catch(error => {
-            console.error('Error deleting tournament:', error);
-            document.getElementById('deleteTournamentMessage').innerHTML = 
-                '<div style="color:red">Error deleting tournament. Please try again.</div>';
-        });
-    }
     
     // Load tournament data when the page loads
     document.addEventListener('DOMContentLoaded', function() {
@@ -722,7 +889,7 @@
         document.getElementById('botSearchInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                searchBots();
+                filterBots(); // Change searchBots to filterBots
             }
         });
     });
