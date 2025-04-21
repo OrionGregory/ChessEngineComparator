@@ -30,12 +30,19 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'PLACEHOLDER')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'chessenginecomparator-894499320278.us-central1.run.app']
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+    'chessenginecomparator-894499320278.us-central1.run.app',
+]
+
 
 # Add CSRF_TRUSTED_ORIGINS setting
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
+    'https://chessenginecomparator-894499320278.us-central1.run.app',
 ]
 
 # Application definition
