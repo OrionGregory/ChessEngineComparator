@@ -1,6 +1,0 @@
-Chess match started at 2025-04-19 23:57:10.858065
-White: daman1 (v1)
-Black: daman (v1)
-
-Move 1 (White): g1h3
-Move 2 (Black): Invalid move by Black. None

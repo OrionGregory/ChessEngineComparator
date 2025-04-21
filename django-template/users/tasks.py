@@ -466,7 +466,7 @@ def run_chess_match(match_id):
             # Save PGN
             pgn_string = str(game)
             pgn_file = ContentFile(pgn_string.encode('utf-8'))
-            match.pgn_file.save(f"match_{match.id}.pgn", pgn_file)
+            match.save_pgn_file(pgn_string)
             
             # Save log
             match.save_log_file(log_buffer.getvalue())
@@ -487,13 +487,21 @@ def run_chess_match(match_id):
                 log_buffer.write(error_message)
                 
                 # Determine which bot was moving when the error occurred
-                current_turn = "white" if match.is_white_turn else "black"
-                
-                # Assign result based on which bot failed
-                if current_turn == "white":
-                    result = "black_win"  # White's error means black wins
-                else:
-                    result = "white_win"  # Black's error means white wins
+                try:
+                    if 'master_board' in locals() and master_board is not None:
+                        current_turn = "white" if master_board.turn == chess.WHITE else "black"
+                        
+                        # Assign result based on which bot failed
+                        if current_turn == "white":
+                            result = "black_win"  # White's error means black wins
+                        else:
+                            result = "white_win"  # Black's error means black wins
+                    else:
+                        # Default if we can't determine
+                        result = "draw"
+                except Exception as e:
+                    logger.error(f"Error determining turn: {str(e)}")
+                    result = "draw"  # Default to draw
                 
                 match.status = 'completed'  # Changed from 'error' to 'completed'
                 match.result = result
@@ -559,12 +567,13 @@ def run_chess_match(match_id):
             
             try:
                 # Try to determine which bot's turn it was
-                if hasattr(match, 'is_white_turn') and not match.is_white_turn:
-                    result = "white_win"  # Black's error means white wins
+                if 'master_board' in locals() and master_board is not None:
+                    result = "white_win" if master_board.turn == chess.BLACK else "black_win"
                 else:
-                    result = "black_win"  # White's error means black wins
-            except:
-                pass  # Stick with default if we can't determine
+                    result = "draw"  # Default to draw if we can't determine
+            except Exception as e:
+                logger.error(f"Error determining result: {str(e)}")
+                result = "draw"  # Default to draw
             
             match.status = 'completed'  # Mark as completed with a result
             match.result = result

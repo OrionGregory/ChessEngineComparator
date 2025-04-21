@@ -5,6 +5,7 @@ import os
 import uuid
 from django.core.files.base import ContentFile
 from .utils import PathAndRename, validate_file_size, validate_file_extension
+from .utils import ensure_directory_exists
 
 class CustomUser(AbstractUser):
     USER_TYPE_CHOICES = (
@@ -267,9 +268,102 @@ class Match(models.Model):
         participant.save()
     
     def save_log_file(self, log_content):
-        """Save the log content to the log_file field"""
-        log_file = ContentFile(log_content.encode('utf-8'))
-        self.log_file.save(f"match_{self.id}_log.txt", log_file)
+        """Save the log content to the log_file field with enhanced error handling"""
+        from django.conf import settings
+        import os
+        import datetime
+        
+        # Create date-based path
+        today = datetime.date.today()
+        log_dir = os.path.join(
+            settings.MEDIA_ROOT, 
+            'match_logs',
+            str(today.year),
+            str(today.month).zfill(2),
+            str(today.day).zfill(2)
+        )
+        
+        # Ensure directory exists with proper permissions
+        from .utils import ensure_directory_exists
+        ensure_directory_exists(log_dir)
+        
+        # Direct file writing approach - more likely to work with permission issues
+        try:
+            log_filename = f"match_{self.id}_log.txt"
+            full_path = os.path.join(log_dir, log_filename)
+            
+            # Write directly to file first
+            with open(full_path, 'w') as f:
+                f.write(log_content)
+            
+            # Then update the model field to point to this file
+            from django.core.files import File
+            with open(full_path, 'rb') as f:
+                self.log_file.save(log_filename, File(f), save=False)
+            
+            # Save the model
+            self.save(update_fields=['log_file'])
+            return True
+        except Exception as e:
+            # Fall back to Django's ContentFile approach if direct file writing fails
+            try:
+                from django.core.files.base import ContentFile
+                log_file = ContentFile(log_content.encode('utf-8'))
+                self.log_file.save(f"match_{self.id}_log.txt", log_file, save=True)
+                return True
+            except Exception as e2:
+                import logging
+                logging.error(f"Failed to save log file: {e2}")
+                return False
+
+    def save_pgn_file(self, pgn_content):
+        """Save PGN content to a file with enhanced error handling"""
+        from django.conf import settings
+        import os
+        import datetime
+        
+        # Create date-based path
+        today = datetime.date.today()
+        pgn_dir = os.path.join(
+            settings.MEDIA_ROOT, 
+            'match_records',
+            str(today.year),
+            str(today.month).zfill(2),
+            str(today.day).zfill(2)
+        )
+        
+        # Ensure directory exists with proper permissions
+        from .utils import ensure_directory_exists
+        ensure_directory_exists(pgn_dir)
+        
+        # Direct file writing approach - more likely to work with permission issues
+        try:
+            pgn_filename = f"match_{self.id}.pgn"
+            full_path = os.path.join(pgn_dir, pgn_filename)
+            
+            # Write directly to file first
+            with open(full_path, 'w') as f:
+                f.write(pgn_content)
+            
+            # Then update the model field to point to this file
+            from django.core.files import File
+            with open(full_path, 'rb') as f:
+                self.pgn_file.save(pgn_filename, File(f), save=False)
+            
+            # Save the model
+            self.save(update_fields=['pgn_file'])
+            return True
+        except Exception as e:
+            # Fall back to Django's ContentFile approach if direct file writing fails
+            try:
+                from django.core.files.base import ContentFile
+                pgn_file = ContentFile(pgn_content.encode('utf-8'))
+                self.pgn_file.save(f"match_{self.id}.pgn", pgn_file, save=True)
+                return True
+            except Exception as e2:
+                import logging
+                logging.error(f"Failed to save PGN file: {e2}")
+                return False
     
     def update_scores(self):
         """Update tournament participant scores based on match results"""
