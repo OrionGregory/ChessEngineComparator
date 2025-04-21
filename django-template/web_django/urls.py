@@ -15,18 +15,36 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.views.generic import RedirectView
+from django.views.generic import RedirectView, TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
+from users.views import user_info, home, google_login, logout_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('users/', include('users.urls')),
     path('accounts/', include('allauth.urls')),
+    
+    # Authentication endpoints
+    path('auth/direct-google-login/', google_login, name='google-login'),
+    path('api/logout/', logout_view, name='logout'),
+    
+    # API endpoints
+    path('api/user-info/', user_info, name='user-info'),
+    
+    # Include app URLs
     path('', include('hello.urls')),
+    
+    # Default route
+    path('', home, name='home'),
+    
+    # Catch-all route for SPA (optional, only if you're using React Router)
+    re_path(r'^(?!api/|admin/|static/|media/|users/|accounts/|auth/).*$', 
+            TemplateView.as_view(template_name='index.html'), name='frontend'),
 ]
+
 urlpatterns += staticfiles_urlpatterns()
 
 # Add this to serve media files in development

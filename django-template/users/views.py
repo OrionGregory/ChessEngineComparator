@@ -1,10 +1,12 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import logout
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import IsAuthenticated
 from django.urls import reverse
 from rest_framework import viewsets, status, permissions, filters
@@ -18,6 +20,63 @@ from django.db.models import Q
 from .services import generate_round_robin_matches, generate_round_robin_matches_with_rounds
 from .tasks import run_chess_match
 from celery import chain, group
+
+
+@csrf_exempt
+def logout_view(request):
+    """
+    Logs out the user and returns success status
+    """
+    logout(request)
+    response = JsonResponse({'success': True})
+    response["Access-Control-Allow-Origin"] = "http://localhost:3000"
+    response["Access-Control-Allow-Credentials"] = "true"
+    return response
+
+@login_required
+def user_info(request):
+    """Return user authentication status and details"""
+    user = request.user
+    return JsonResponse({
+        "isAuthenticated": user.is_authenticated,
+        "email": user.email,
+        "role": "teacher" if user.email.endswith("@teacher.edu") else "student",
+        "username": user.username,
+    })
+
+def google_login(request):
+    """
+    Redirects to Google OAuth2 authentication
+    """
+    # Get the 'next' parameter to redirect after authentication
+    next_url = request.GET.get('next', '/')
+    
+    # Using django-allauth's URL pattern
+    return redirect('/accounts/google/login/?process=login&next=' + next_url)
+
+def logout_view(request):
+    """
+    Logs out the user and returns success status
+    """
+    logout(request)
+    return JsonResponse({'success': True})
+
+# Add this function if you haven't already defined it
+def join_tournament(request, id):
+    """
+    Allow a user to join a tournament
+    """
+    # In a real implementation, this would create a participant record
+    # For now, just return success
+    if request.method == 'POST':
+        # Your logic to add user to tournament
+        return JsonResponse({'success': True, 'tournament_id': id})
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+@login_required
+def home(request):
+    """Redirect to React app's homepage"""
+    return redirect('http://localhost:3000/')
 
 def login(request):
     """Render the login page with direct Google OAuth option"""

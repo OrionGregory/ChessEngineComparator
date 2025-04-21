@@ -10,3 +10,5 @@ python-chess==1.2.0
 celery
 redis
 dotenv
+vine<6.0,>=5.1.0
+tzdata>=2022.7

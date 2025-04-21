@@ -32,10 +32,10 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -58,6 +58,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -67,6 +68,23 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # React app's origin
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_COOKIE_SAMESITE = 'Lax'  # or 'None' if cross-site
+SESSION_COOKIE_SAMESITE = 'Lax'  # or 'None' if cross-site
+
+if DEBUG:
+    # Only set these in development
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+else:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
 
 ROOT_URLCONF = "web_django.urls"
 
@@ -88,7 +106,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "web_django.wsgi.application"
 
-
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
@@ -102,7 +119,6 @@ DATABASES = {
         "PORT": os.environ.get("DB_PORT", "5432"),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -122,7 +138,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
@@ -133,7 +148,6 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
@@ -164,6 +178,7 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'  # Can be changed to 'mandatory'
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'  # Change to 'https' in production
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
+SOCIALACCOUNT_LOGIN_ON_GET = True
 
 # Restrict to OAuth only
 ACCOUNT_ADAPTER = 'users.adapters.NoSignupAccountAdapter'
@@ -202,26 +217,23 @@ SIMPLE_JWT = {
 # Social account providers
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
-        'APP': {
-            'client_id': os.environ.get('GOOGLE_CLIENT_ID', ''),
-            'secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''),
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
         },
-        'SCOPE': ['profile', 'email'],
-        'AUTH_PARAMS': {'access_type': 'online'},
-        'VERIFIED_EMAIL': True,
+        'OAUTH_PKCE_ENABLED': True,  # Enable PKCE for enhanced security
     }
 }
 
 # Login/logout redirects
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = 'http://localhost:3000/'  # Redirect to React homepage after login
+LOGOUT_REDIRECT_URL = 'http://localhost:3000/'  # Redirect to React homepage after logout
+LOGIN_URL = '/accounts/login/'  # Default login URL
 
-# Add or update these settings
-LOGIN_URL = '/users/login/'  # Where to redirect if @login_required fails
-LOGIN_REDIRECT_URL = '/'  # After OAuth login, redirect to home
-LOGOUT_REDIRECT_URL = '/users/login/'  # Where to go after logout
-
-# Add these settings for media files
+# Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 

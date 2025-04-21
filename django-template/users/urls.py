@@ -11,23 +11,26 @@ router.register(r'tournaments', views.TournamentViewSet, basename='tournament')
 router.register(r'matches', views.MatchViewSet, basename='match')
 
 urlpatterns = [
-    # Existing paths
+    # Authentication paths
     path('login/', views.login, name='login'),
     path('profile/', views.profile, name='profile'),
     path('api/token/', views.TokenObtainView.as_view(), name='token_obtain'),
     
+    # Dashboard paths
     path('teacher-dashboard/', views.teacher_dashboard, name='teacher_dashboard'),
     
-    # Changed from <uuid:student_id> to <int:student_id>
+    # Student paths
     path('student/<int:student_id>/', views.student_detail, name='student_detail'),
-    
-    # Add new path for student removal confirmation
     path('student/<int:student_id>/remove/', views.confirm_remove_student, name='confirm_remove_student'),
     
-    # Keep other paths as they are
+    # Class and tournament paths
     path('class/<uuid:class_id>/', views.class_detail, name='class_detail'),
     path('tournament/<uuid:tournament_id>/', views.tournament_detail, name='tournament_detail'),
     
+    # API endpoints for tournaments
+    path('api/tournaments/<int:id>/join/', views.join_tournament, name='join-tournament'),
+    
+    # Include DRF router URLs
     path('api/', include(router.urls)),
     path('', include(router.urls)),
 ]

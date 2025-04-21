@@ -1,4 +1,5 @@
 pip install celery redis python-chess
 sudo apt-get install redis-server
 sudo systemctl start redis
+sudo apt install celery
 celery -A web_django worker --loglevel=info
