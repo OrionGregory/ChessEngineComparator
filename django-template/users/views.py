@@ -22,7 +22,7 @@ from celery import chain, group
 def login(request):
     """Render the login page with direct Google OAuth option"""
     if request.user.is_authenticated:
-        return redirect('home')
+        return redirect('profile')  # Redirect straight to profile instead of home
     return render(request, 'users/login.html')
 
 def google_login_redirect(request):

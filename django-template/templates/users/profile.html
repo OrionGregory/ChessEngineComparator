@@ -23,9 +23,6 @@
             <h3>Teacher Tools</h3>
             <div class="action-buttons">
                 <a href="{% url 'teacher_dashboard' %}" class="btn btn-primary">Go to Dashboard</a>
-                <a href="#" class="btn btn-primary">Manage Classes</a>
-                <a href="#" class="btn btn-secondary">Create Tournament</a>
-                <a href="#" class="btn btn-secondary">View Student Progress</a>
             </div>
         </div>
         {% else %}
@@ -123,12 +120,9 @@
         {% endif %}
         
         <div class="account-settings">
-            <h3>Account Settings</h3>
-            <ul class="settings-list">
-                <li><a href="#">Change Password</a></li>
-                <li><a href="#">Notification Preferences</a></li>
-                <li><a href="/accounts/logout/" class="logout-link">Logout</a></li>
-            </ul>
+            <div class="logout-action">
+                <a href="/accounts/logout/" class="btn btn-secondary logout-btn">Logout</a>
+            </div>
         </div>
     </div>
 </div>
@@ -380,6 +374,23 @@
         color: #666;
         margin-top: 2px;
         font-style: italic;
+    }
+    
+    .logout-btn {
+        color: #f44336;
+        border: 1px solid #f44336;
+        background-color: transparent;
+        transition: background-color 0.3s, color 0.3s;
+    }
+    
+    .logout-btn:hover {
+        background-color: #f44336;
+        color: white;
+    }
+    
+    .logout-action {
+        margin-top: 20px;
+        text-align: right;
     }
 </style>
 

@@ -24,7 +24,6 @@
         <div class="tournament-actions">
             {% if tournament.status == 'scheduled' %}
                 <button class="btn btn-primary" onclick="startTournament()">Start Tournament</button>
-                <button class="btn btn-danger" onclick="openCancelTournamentModal()">Cancel Tournament</button>
             {% endif %}
             <!-- Add a delete button that's always visible -->
             <button class="btn btn-danger" onclick="openDeleteTournamentModal()">Delete Tournament</button>
@@ -79,20 +78,6 @@
                 <button class="btn btn-primary" onclick="addSelectedBots()">Add Selected Bots</button>
                 <button class="btn btn-secondary" onclick="closeAddParticipantModal()">Close</button>
             </div>
-        </div>
-    </div>
-    
-    <!-- Confirm Cancel Tournament Modal -->
-    <div id="confirmCancelModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeConfirmCancelModal()">&times;</span>
-            <h3>Cancel Tournament</h3>
-            <p>Are you sure you want to cancel this tournament? This action cannot be undone.</p>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="closeConfirmCancelModal()">No, Keep Tournament</button>
-                <button class="btn btn-danger" onclick="confirmCancelTournament()">Yes, Cancel Tournament</button>
-            </div>
-            <div id="cancelTournamentMessage"></div>
         </div>
     </div>
     
@@ -469,15 +454,6 @@
         document.getElementById('addParticipantModal').style.display = 'none';
     }
     
-    function openCancelTournamentModal() {
-        document.getElementById('confirmCancelModal').style.display = 'block';
-    }
-    
-    function closeConfirmCancelModal() {
-        document.getElementById('confirmCancelModal').style.display = 'none';
-        document.getElementById('cancelTournamentMessage').innerHTML = '';
-    }
-    
     // Add these functions to handle the delete modal
     function openDeleteTournamentModal() {
         document.getElementById('confirmDeleteModal').style.display = 'block';
@@ -847,36 +823,6 @@
         .catch(error => {
             console.error('Error starting tournament:', error);
             alert('Error starting tournament. Please try again.');
-        });
-    }
-    
-    function confirmCancelTournament() {
-        fetch(`/users/api/tournaments/{{ tournament.id }}/cancel/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.message) {
-                document.getElementById('cancelTournamentMessage').innerHTML = 
-                    `<div style="color:green">${data.message}</div>`;
-                
-                // Reload page after a delay
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            } else if (data.error) {
-                document.getElementById('cancelTournamentMessage').innerHTML = 
-                    `<div style="color:red">${data.error}</div>`;
-            }
-        })
-        .catch(error => {
-            console.error('Error cancelling tournament:', error);
-            document.getElementById('cancelTournamentMessage').innerHTML = 
-                '<div style="color:red">Error cancelling tournament. Please try again.</div>';
         });
     }
     

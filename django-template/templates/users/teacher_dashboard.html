@@ -11,7 +11,6 @@
     <div class="dashboard-tabs">
         <div class="tab-header">
             <button class="tab-button active" onclick="openTab(event, 'students-tab')">Students</button>
-            <button class="tab-button" onclick="openTab(event, 'classes-tab')">Classes</button>
             <button class="tab-button" onclick="openTab(event, 'tournaments-tab')">Tournaments</button>
         </div>
         
@@ -25,37 +24,6 @@
             
             <div id="studentsList" class="data-list">
                 <p>Loading students...</p>
-            </div>
-        </div>
-        
-        <!-- Classes Tab -->
-        <div id="classes-tab" class="tab-content">
-            <h2>Classes</h2>
-            
-            <button class="btn btn-primary" onclick="openCreateClassModal()">Create New Class</button>
-            
-            <div id="classesList" class="data-list">
-                <p>Loading classes...</p>
-            </div>
-            
-            <!-- Create Class Modal -->
-            <div id="createClassModal" class="modal">
-                <div class="modal-content">
-                    <span class="close" onclick="closeCreateClassModal()">&times;</span>
-                    <h3>Create New Class</h3>
-                    <form id="createClassForm">
-                        <div class="form-group">
-                            <label for="className">Class Name</label>
-                            <input type="text" id="className" name="name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="classDescription">Description</label>
-                            <textarea id="classDescription" name="description"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Create Class</button>
-                    </form>
-                    <div id="createClassMessage"></div>
-                </div>
             </div>
         </div>
         
@@ -307,8 +275,6 @@
         // Load data for the selected tab
         if (tabName === "students-tab") {
             loadStudents();
-        } else if (tabName === "classes-tab") {
-            loadClasses();
         } else if (tabName === "tournaments-tab") {
             loadTournaments();
         }
@@ -331,16 +297,6 @@
     }
     
     // Modal functions
-    function openCreateClassModal() {
-        document.getElementById('createClassModal').style.display = 'block';
-    }
-    
-    function closeCreateClassModal() {
-        document.getElementById('createClassModal').style.display = 'none';
-        document.getElementById('createClassMessage').innerHTML = '';
-        document.getElementById('createClassForm').reset();
-    }
-    
     function openCreateTournamentModal() {
         document.getElementById('createTournamentModal').style.display = 'block';
     }
@@ -410,52 +366,6 @@
     
     function viewStudentDetails(studentId) {
         window.location.href = `/users/student/${studentId}/`;
-    }
-    
-    function loadClasses() {
-        fetch('/users/api/classes/')
-            .then(response => response.json())
-            .then(data => {
-                const classesListDiv = document.getElementById('classesList');
-                
-                if (data.length === 0) {
-                    classesListDiv.innerHTML = `<p>No classes found. Create your first class!</p>`;
-                    return;
-                }
-                
-                let html = '';
-                
-                data.forEach(cls => {
-                    const createdDate = new Date(cls.created_at).toLocaleDateString();
-                    
-                    html += `
-                        <div class="class-card">
-                            <div class="class-info">
-                                <h4>${cls.name}</h4>
-                                <p>Students: ${cls.student_count} • Created: ${createdDate}</p>
-                                <p>${cls.description || 'No description'}</p>
-                            </div>
-                            <div class="class-actions">
-                                <button class="btn btn-secondary" onclick="viewClassDetails('${cls.id}')">
-                                    Manage Class
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                classesListDiv.innerHTML = html;
-            })
-            .catch(error => {
-                console.error('Error loading classes:', error);
-                document.getElementById('classesList').innerHTML = `
-                    <p>Error loading classes. Please try again later.</p>
-                `;
-            });
-    }
-    
-    function viewClassDetails(classId) {
-        window.location.href = `/users/class/${classId}/`;
     }
     
     function loadTournaments() {
@@ -545,53 +455,6 @@
 
         // Load students by default
         loadStudents();
-        
-        // Handle class creation form
-        document.getElementById('createClassForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            const jsonData = {};
-            formData.forEach((value, key) => {
-                jsonData[key] = value;
-            });
-            
-            fetch('/users/api/classes/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify(jsonData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.id) {
-                    document.getElementById('createClassMessage').innerHTML = 
-                        '<div style="color:green">Class created successfully!</div>';
-                    document.getElementById('createClassForm').reset();
-                    
-                    // Reload the classes list and close modal after a delay
-                    loadClasses();
-                    setTimeout(() => {
-                        closeCreateClassModal();
-                    }, 1500);
-                } else {
-                    // Error handling
-                    let errorMsg = '<div style="color:red">Failed to create class:<ul>';
-                    for (const field in data) {
-                        errorMsg += `<li>${field}: ${data[field]}</li>`;
-                    }
-                    errorMsg += '</ul></div>';
-                    document.getElementById('createClassMessage').innerHTML = errorMsg;
-                }
-            })
-            .catch(error => {
-                console.error('Error creating class:', error);
-                document.getElementById('createClassMessage').innerHTML = 
-                    '<div style="color:red">Failed to create class. Please try again.</div>';
-            });
-        });
         
         // Handle tournament creation form
         document.getElementById('createTournamentForm').addEventListener('submit', function(e) {
