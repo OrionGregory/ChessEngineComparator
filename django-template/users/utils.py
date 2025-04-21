@@ -12,28 +12,23 @@ def validate_file_size(file):
 
 def validate_file_extension(file):
     ext = os.path.splitext(file.name)[1]
-    valid_extensions = ['.py']
-    
-    if ext.lower() not in valid_extensions:
+    if ext.lower() != '.py':
         raise ValidationError('Only Python (.py) files are allowed.')
 
 @deconstructible
 class PathAndRename:
     """
-    Generate unique path for uploading files.
-    Example: chess_bots/user_<id>/yyyy/mm/dd/<uuid>_<filename>
+    Store bot files as: chess_bots/<bot_uuid>_<original_filename>
     """
-    def __init__(self, sub_path):
+    def __init__(self, sub_path='chess_bots'):
         self.sub_path = sub_path
 
     def __call__(self, instance, filename):
         ext = filename.split('.')[-1]
-        filename = f"{uuid.uuid4().hex}_{instance.name.replace(' ', '_')}.{ext}"
-        
-        # Generate path format: chess_bots/user_<id>/yyyy/mm/dd/<uuid>_<filename>
-        return os.path.join(
-            'chess_bots',
-            f'user_{instance.owner.id}',
-            self.sub_path, 
-            filename
-        )
+        # Use bot UUID if available, else generate a new one
+        if instance.pk:
+            uid = str(instance.pk)
+        else:
+            uid = uuid.uuid4().hex
+        filename = f"{uid}_{instance.name.replace(' ', '_')}.{ext}"
+        return os.path.join(self.sub_path, filename)

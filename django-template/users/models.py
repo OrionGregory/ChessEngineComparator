@@ -4,6 +4,7 @@ from django.utils import timezone
 import os
 import uuid
 from django.core.files.base import ContentFile
+from .utils import PathAndRename, validate_file_size, validate_file_extension
 
 class CustomUser(AbstractUser):
     USER_TYPE_CHOICES = (
@@ -52,7 +53,10 @@ class ChessBot(models.Model):
     owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='chess_bots')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    file_path = models.FileField(upload_to='chess_bots/%Y/%m/%d/')
+    file_path = models.FileField(
+        upload_to=PathAndRename(),  # Use the new path logic
+        validators=[validate_file_size, validate_file_extension]
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='private')
