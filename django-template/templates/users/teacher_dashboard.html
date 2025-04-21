@@ -1,0 +1,851 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div id="authWarning" style="display:none; background-color: #f8d7da; color: #721c24; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+    <strong>Warning:</strong> You are not properly authenticated as a teacher. Some features may not work.
+</div>
+
+<div class="dashboard-container">
+    <h1>Teacher Dashboard</h1>
+    
+    <div class="dashboard-tabs">
+        <div class="tab-header">
+            <button class="tab-button active" onclick="openTab(event, 'students-tab')">Students</button>
+            <button class="tab-button" onclick="openTab(event, 'tournaments-tab')">Tournaments</button>
+            <button class="tab-button" onclick="openTab(event, 'leaderboard-tab')">Leaderboard</button>
+        </div>
+        
+        <!-- Students Tab -->
+        <div id="students-tab" class="tab-content active">
+            <h2>Students</h2>
+            
+            <div class="search-bar">
+                <input type="text" id="studentSearch" placeholder="Search students..." onkeyup="searchStudents()">
+            </div>
+            
+            <div id="studentsList" class="data-list">
+                <p>Loading students...</p>
+            </div>
+        </div>
+        
+        <!-- Tournaments Tab -->
+        <div id="tournaments-tab" class="tab-content">
+            <h2>Tournaments</h2>
+            
+            <button class="btn btn-primary" onclick="openCreateTournamentModal()">Create New Tournament</button>
+            
+            <div id="tournamentsList" class="data-list">
+                <p>Loading tournaments...</p>
+            </div>
+            
+            <!-- Create Tournament Modal -->
+            <div id="createTournamentModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeCreateTournamentModal()">&times;</span>
+                    <h3>Create New Tournament</h3>
+                    <form id="createTournamentForm">
+                        <div class="form-group">
+                            <label for="tournamentName">Tournament Name</label>
+                            <input type="text" id="tournamentName" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="tournamentDescription">Description</label>
+                            <textarea id="tournamentDescription" name="description"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="tournamentSchedule">Schedule (optional)</label>
+                            <input type="datetime-local" id="tournamentSchedule" name="scheduled_at">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Tournament</button>
+                    </form>
+                    <div id="createTournamentMessage"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Leaderboard Tab -->
+        <div id="leaderboard-tab" class="tab-content">
+            <h2>Bot Leaderboard</h2>
+            <p>Performance statistics for all active chess bots.</p>
+            
+            <div class="leaderboard-controls">
+                <div class="tournament-filter">
+                    <label for="tournamentFilter">Filter by tournament:</label>
+                    <select id="tournamentFilter" onchange="loadLeaderboard()">
+                        <option value="all">All Tournaments</option>
+                        <!-- Tournament options will be loaded dynamically -->
+                    </select>
+                </div>
+            </div>
+            
+            <div id="leaderboardTable" class="leaderboard-table">
+                <!-- Loading message moved to loadLeaderboard function -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add delete tournament modal -->
+<div id="confirmDeleteModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeConfirmDeleteModal()">&times;</span>
+        <h3>Delete Tournament</h3>
+        <p id="deleteTournamentConfirmText">Are you sure you want to permanently delete this tournament?</p>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeConfirmDeleteModal()">No, Keep Tournament</button>
+            <button class="btn btn-danger" id="confirmDeleteButton">Yes, Delete Tournament</button>
+        </div>
+        <div id="deleteTournamentMessage"></div>
+    </div>
+</div>
+
+<style>
+    .dashboard-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .dashboard-tabs {
+        margin-top: 20px;
+    }
+    
+    .tab-header {
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        margin-bottom: 20px;
+    }
+    
+    .tab-button {
+        background-color: inherit;
+        border: none;
+        padding: 10px 20px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+        border-radius: 4px 4px 0 0;
+        margin-right: 5px;
+    }
+    
+    .tab-button:hover {
+        background-color: #f1f1f1;
+    }
+    
+    .tab-button.active {
+        border: 1px solid #ddd;
+        border-bottom: none;
+        background-color: white;
+        font-weight: bold;
+    }
+    
+    .tab-content {
+        display: none;
+        padding: 20px 0;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    .search-bar {
+        margin-bottom: 20px;
+    }
+    
+    .search-bar input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+    
+    .data-list {
+        margin-top: 20px;
+    }
+    
+    .student-card,
+    .class-card,
+    .tournament-card {
+        background-color: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .student-info,
+    .class-info,
+    .tournament-info {
+        flex-grow: 1;
+    }
+    
+    .student-actions,
+    .class-actions,
+    .tournament-actions {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+        margin-left: 5px;
+    }
+    
+    .badge-active {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .badge-scheduled {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .badge-in-progress {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .badge-completed {
+        background-color: #d1e7dd;
+        color: #0f5132;
+    }
+    
+    .badge-cancelled {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    /* Keep existing modal styles */
+    
+    /* Enhanced modal styles to ensure proper popup display */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+    }
+    
+    .modal-content {
+        position: relative;
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        border-radius: 8px;
+        width: 50%;
+        max-width: 500px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        animation: modalopen 0.4s;
+    }
+    
+    @keyframes modalopen {
+        from {opacity: 0; transform: translateY(-50px);}
+        to {opacity: 1; transform: translateY(0);}
+    }
+    
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+    }
+    
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    /* Leaderboard styles */
+    .leaderboard-controls {
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .tournament-filter {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .tournament-filter select {
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+    }
+    
+    .leaderboard-table {
+        overflow-x: auto;
+    }
+    
+    .leaderboard-table table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .leaderboard-table th, 
+    .leaderboard-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .leaderboard-table th {
+        background-color: #f5f5f5;
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+    }
+    
+    .leaderboard-table tr:hover {
+        background-color: #f1f1f1;
+    }
+    
+    .leaderboard-table .rank {
+        text-align: center;
+        font-weight: bold;
+    }
+    
+    .leaderboard-table .rank-1 {
+        background-color: gold;
+        color: black;
+    }
+    
+    .leaderboard-table .rank-2 {
+        background-color: silver;
+        color: black;
+    }
+    
+    .leaderboard-table .rank-3 {
+        background-color: #cd7f32; /* bronze */
+        color: white;
+    }
+</style>
+
+<script>
+    // Tab functionality
+    function openTab(evt, tabName) {
+        const tabContents = document.getElementsByClassName("tab-content");
+        for (let i = 0; i < tabContents.length; i++) {
+            tabContents[i].classList.remove("active");
+        }
+        
+        const tabButtons = document.getElementsByClassName("tab-button");
+        for (let i = 0; i < tabButtons.length; i++) {
+            tabButtons[i].classList.remove("active");
+        }
+        
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+        
+        // Load data for the selected tab
+        if (tabName === "students-tab") {
+            loadStudents();
+        } else if (tabName === "tournaments-tab") {
+            loadTournaments();
+        } else if (tabName === "leaderboard-tab") {
+            loadTournamentOptions();
+            loadLeaderboard();
+        }
+    }
+    
+    // Get CSRF token for POST requests
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Modal functions
+    function openCreateTournamentModal() {
+        document.getElementById('createTournamentModal').style.display = 'block';
+    }
+    
+    function closeCreateTournamentModal() {
+        document.getElementById('createTournamentModal').style.display = 'none';
+        document.getElementById('createTournamentMessage').innerHTML = '';
+        document.getElementById('createTournamentForm').reset();
+    }
+    
+    // API functions
+    function loadStudents() {
+        fetch('/users/api/students/')
+            .then(response => response.json())
+            .then(data => {
+                const studentsListDiv = document.getElementById('studentsList');
+                
+                if (data.length === 0) {
+                    studentsListDiv.innerHTML = `<p>No students found.</p>`;
+                    return;
+                }
+                
+                let html = '';
+                
+                data.forEach(student => {
+                    const joinDate = new Date(student.date_joined).toLocaleDateString();
+                    
+                    html += `
+                        <div class="student-card" data-student-id="${student.id}" data-email="${student.email}">
+                            <div class="student-info">
+                                <h4>${student.email}</h4>
+                                <p>Joined: ${joinDate} • Bots: ${student.bot_count}</p>
+                            </div>
+                            <div class="student-actions">
+                                <button class="btn btn-secondary" onclick="viewStudentDetails('${student.id}')">
+                                    View Details
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                studentsListDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading students:', error);
+                document.getElementById('studentsList').innerHTML = `
+                    <p>Error loading students. Please try again later.</p>
+                `;
+            });
+    }
+    
+    function searchStudents() {
+        const input = document.getElementById('studentSearch');
+        const filter = input.value.toUpperCase();
+        const studentCards = document.querySelectorAll('.student-card');
+        
+        studentCards.forEach(card => {
+            const email = card.getAttribute('data-email').toUpperCase();
+            if (email.indexOf(filter) > -1) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+    
+    function viewStudentDetails(studentId) {
+        window.location.href = `/users/student/${studentId}/`;
+    }
+    
+    function loadTournaments() {
+        fetch('/users/api/tournaments/')
+            .then(response => response.json())
+            .then(data => {
+                const tournamentsListDiv = document.getElementById('tournamentsList');
+                
+                if (data.length === 0) {
+                    tournamentsListDiv.innerHTML = `<p>No tournaments found. Create your first tournament!</p>`;
+                    return;
+                }
+                
+                let html = '';
+                
+                data.forEach(tournament => {
+                    const createdDate = new Date(tournament.created_at).toLocaleDateString();
+                    let scheduledDate = tournament.scheduled_at ? 
+                        new Date(tournament.scheduled_at).toLocaleString() : 'Not scheduled';
+                    
+                    // Determine badge class based on status
+                    let statusClass = '';
+                    switch(tournament.status) {
+                        case 'scheduled':
+                            statusClass = 'badge-scheduled';
+                            break;
+                        case 'in_progress':
+                            statusClass = 'badge-in-progress';
+                            break;
+                        case 'completed':
+                            statusClass = 'badge-completed';
+                            break;
+                        case 'cancelled':
+                            statusClass = 'badge-cancelled';
+                            break;
+                    }
+                    
+                    html += `
+                        <div class="tournament-card">
+                            <div class="tournament-info">
+                                <h4>${tournament.name} 
+                                    <span class="badge ${statusClass}">
+                                        ${tournament.status.toUpperCase()}
+                                    </span>
+                                </h4>
+                                <p>Participants: ${tournament.participant_count} • Matches: ${tournament.match_count}</p>
+                                <p>Created: ${createdDate} • Scheduled: ${scheduledDate}</p>
+                                <p>${tournament.description || 'No description'}</p>
+                            </div>
+                            <div class="tournament-actions">
+                                <button class="btn btn-secondary" onclick="viewTournamentDetails('${tournament.id}')">
+                                    Manage Tournament
+                                </button>
+                                <button class="btn btn-danger" onclick="openDeleteTournamentModal('${tournament.id}', '${tournament.name}')">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                tournamentsListDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading tournaments:', error);
+                document.getElementById('tournamentsList').innerHTML = `
+                    <p>Error loading tournaments. Please try again later.</p>
+                `;
+            });
+    }
+    
+    function viewTournamentDetails(tournamentId) {
+        window.location.href = `/users/tournament/${tournamentId}/`;
+    }
+    
+    // Form submission handlers
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check authentication status
+        fetch('/users/api/auth-status/', { credentials: 'include' })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Authentication status:', data);
+                if (!data.authenticated || data.role !== 'teacher') {
+                    document.getElementById('authWarning').style.display = 'block';
+                }
+            });
+
+        // Activate tab based on URL hash
+        activateTabFromHash();
+        
+        // Also handle hash changes (if someone uses browser back/forward)
+        window.addEventListener('hashchange', activateTabFromHash);
+        
+        // If no hash is present, load students by default (existing behavior)
+        if (!window.location.hash) {
+            loadStudents();
+        } else if (window.location.hash === '#leaderboard-tab') {
+            loadTournamentOptions();
+            loadLeaderboard();
+        }
+        
+        // Handle tournament creation form
+        document.getElementById('createTournamentForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const jsonData = {};
+            formData.forEach((value, key) => {
+                // Only add non-empty values to avoid sending empty strings for optional fields
+                if (value) {
+                    jsonData[key] = value;
+                }
+            });
+            
+            // Debug what's being sent
+            console.log('Sending tournament data:', jsonData);
+            
+            fetch('/users/api/tournaments/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(jsonData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    console.error('Error response:', response.status, response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Server response:', data);
+                if (data.id) {
+                    document.getElementById('createTournamentMessage').innerHTML = 
+                        '<div style="color:green">Tournament created successfully!</div>';
+                    document.getElementById('createTournamentForm').reset();
+                    
+                    // Reload the tournaments list and close modal after a delay
+                    loadTournaments();
+                    setTimeout(() => {
+                        closeCreateTournamentModal();
+                    }, 1500);
+                } else {
+                    // Error handling
+                    let errorMsg = '<div style="color:red">Failed to create tournament:<ul>';
+                    for (const field in data) {
+                        errorMsg += `<li>${field}: ${data[field]}</li>`;
+                    }
+                    errorMsg += '</ul></div>';
+                    document.getElementById('createTournamentMessage').innerHTML = errorMsg;
+                }
+            })
+            .catch(error => {
+                console.error('Error creating tournament:', error);
+                document.getElementById('createTournamentMessage').innerHTML = 
+                    '<div style="color:red">Failed to create tournament. Please try again.</div>';
+            });
+        });
+        
+        // Load tournament options for the filter dropdown
+        loadTournamentOptions();
+    });
+    
+    // Add these functions to handle tournament deletion from the dashboard
+    function openDeleteTournamentModal(tournamentId, tournamentName) {
+        document.getElementById('deleteTournamentConfirmText').innerHTML = 
+            `Are you sure you want to permanently delete tournament <strong>${tournamentName}</strong>? This will remove all matches, results, and participant data. This action cannot be undone.`;
+        
+        // Set up the delete button to work with the selected tournament
+        document.getElementById('confirmDeleteButton').onclick = function() {
+            confirmDeleteTournament(tournamentId);
+        };
+        
+        document.getElementById('confirmDeleteModal').style.display = 'block';
+    }
+    
+    function closeConfirmDeleteModal() {
+        document.getElementById('confirmDeleteModal').style.display = 'none';
+        document.getElementById('deleteTournamentMessage').innerHTML = '';
+    }
+    
+    function confirmDeleteTournament(tournamentId) {
+        console.log("Attempting to delete tournament...", tournamentId);
+        fetch(`/users/api/tournaments/${tournamentId}/delete_tournament/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            console.log("Response status:", response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Response data:", data);
+            if (data.message) {
+                document.getElementById('deleteTournamentMessage').innerHTML = 
+                    `<div style="color:green">${data.message}</div>`;
+                
+                // Reload the tournaments list after a delay
+                setTimeout(() => {
+                    loadTournaments();
+                    closeConfirmDeleteModal();
+                }, 1500);
+            } else if (data.error) {
+                document.getElementById('deleteTournamentMessage').innerHTML = 
+                    `<div style="color:red">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting tournament:', error);
+            document.getElementById('deleteTournamentMessage').innerHTML = 
+                '<div style="color:red">Error deleting tournament. Please try again.</div>';
+        });
+    }
+    
+    // Function to activate tab based on URL hash
+    function activateTabFromHash() {
+        const hash = window.location.hash;
+        if (hash) {
+            const tabName = hash.substring(1); // Remove the # character
+            const tabElement = document.getElementById(tabName);
+            
+            if (tabElement) {
+                // Find the button for this tab
+                const tabButtons = document.getElementsByClassName("tab-button");
+                for (let i = 0; i < tabButtons.length; i++) {
+                    tabButtons[i].classList.remove("active");
+                    if (tabButtons[i].getAttribute("onclick").includes(tabName)) {
+                        tabButtons[i].classList.add("active");
+                    }
+                }
+                
+                // Hide all tab contents and show the selected one
+                const tabContents = document.getElementsByClassName("tab-content");
+                for (let i = 0; i < tabContents.length; i++) {
+                    tabContents[i].classList.remove("active");
+                }
+                tabElement.classList.add("active");
+                
+                // Load the data for the selected tab
+                if (tabName === "students-tab") {
+                    loadStudents();
+                } else if (tabName === "tournaments-tab") {
+                    loadTournaments();
+                } else if (tabName === "leaderboard-tab") {
+                    loadTournamentOptions();
+                    loadLeaderboard();
+                }
+            }
+        }
+    }
+    
+    // Function to load available tournaments for the filter dropdown
+    function loadTournamentOptions() {
+        fetch('/users/api/tournaments/')
+            .then(response => response.json())
+            .then(data => {
+                const filterDropdown = document.getElementById('tournamentFilter');
+                
+                // Keep the "All Tournaments" option
+                filterDropdown.innerHTML = '<option value="all">All Tournaments</option>';
+                
+                // Only add completed tournaments to the dropdown
+                const completedTournaments = data.filter(t => t.status === 'completed');
+                
+                if (completedTournaments.length === 0) {
+                    return;
+                }
+                
+                // Add each completed tournament as an option
+                completedTournaments.forEach(tournament => {
+                    const option = document.createElement('option');
+                    option.value = tournament.id;
+                    option.textContent = tournament.name;
+                    filterDropdown.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading tournament options:', error);
+            });
+    }
+    
+    function loadLeaderboard() {
+        // Show loading message when starting to load
+        document.getElementById('leaderboardTable').innerHTML = `<p>Loading leaderboard data...</p>`;
+        
+        // Get the selected tournament (if any)
+        const tournamentId = document.getElementById('tournamentFilter').value;
+        
+        // Build the API URL based on whether a tournament is selected
+        const url = tournamentId === 'all' 
+            ? '/users/api/leaderboard/' 
+            : `/users/api/leaderboard/?tournament=${tournamentId}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const leaderboardDiv = document.getElementById('leaderboardTable');
+                
+                if (!data.leaderboard || data.leaderboard.length === 0) {
+                    leaderboardDiv.innerHTML = `
+                        <p>No bot data available for leaderboard. Bots need to participate in matches to be ranked.</p>
+                    `;
+                    return;
+                }
+                
+                let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Bot Name</th>
+                            <th>Owner</th>
+                            <th>Win %</th>
+                            <th>Draw %</th>
+                            <th>Games</th>
+                            <th>Wins</th>
+                            <th>Draws</th>
+                            <th>Losses</th>
+                            <th>Tournaments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+                
+                // Calculate ranking with ties
+                let rank = 1;
+                let sameRankCount = 0;
+                let previousStats = null;
+                
+                data.leaderboard.forEach((bot, index) => {
+                    // Check if this bot has the same stats as the previous one
+                    const currentStats = `${bot.win_percentage}-${bot.draw_percentage}-${bot.total_games}-${bot.wins}-${bot.draws}`;
+                    
+                    // If this isn't the first bot and the stats match the previous bot, keep the same rank
+                    // Otherwise, set the rank to the current position + 1
+                    if (index > 0 && currentStats === previousStats) {
+                        sameRankCount++;
+                    } else {
+                        // If we just finished a sequence of tied bots, jump rank by that amount
+                        rank += sameRankCount;
+                        sameRankCount = 0;
+                        // Set the rank to the current index + 1
+                        if (index > 0) {
+                            rank = index + 1; 
+                        }
+                    }
+                    
+                    // Store the current stats for the next iteration
+                    previousStats = currentStats;
+                    
+                    // Apply special styling to top 3 positions
+                    const rankClass = rank <= 3 ? `rank-${rank}` : '';
+                    
+                    html += `
+                        <tr>
+                            <td class="rank ${rankClass}">${rank}</td>
+                            <td>${bot.name}</td>
+                            <td>${bot.owner}</td>
+                            <td>${bot.win_percentage}%</td>
+                            <td>${bot.draw_percentage || 0}%</td>
+                            <td>${bot.total_games}</td>
+                            <td>${bot.wins}</td>
+                            <td>${bot.draws}</td>
+                            <td>${bot.losses}</td>
+                            <td>${bot.tournament_participations}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                    </tbody>
+                </table>
+                `;
+                
+                leaderboardDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading leaderboard:', error);
+                document.getElementById('leaderboardTable').innerHTML = `
+                    <p>Error loading leaderboard data. Please try again later.</p>
+                `;
+            });
+    }
+</script>
+{% endblock %}

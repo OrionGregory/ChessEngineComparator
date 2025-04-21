@@ -1,0 +1,881 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="tournament-detail-container">
+    <div class="breadcrumbs">
+        <a href="{% url 'teacher_dashboard' %}#tournaments-tab">← Back to Dashboard</a>
+    </div>
+    
+    <div class="tournament-profile-card">
+        <div class="tournament-header">
+            <h1>{{ tournament.name }}</h1>
+            <p class="tournament-meta">
+                Status: <span class="badge badge-{{ tournament.status }}">{{ tournament.get_status_display }}</span>
+                • Created: {{ tournament.created_at|date:"F j, Y" }}
+                {% if tournament.scheduled_at %}
+                • Scheduled: {{ tournament.scheduled_at|date:"F j, Y H:i" }}
+                {% endif %}
+            </p>
+            <p class="tournament-description">{{ tournament.description }}</p>
+        </div>
+        
+        <hr>
+        
+        <div class="tournament-actions">
+            {% if tournament.status == 'scheduled' %}
+                <button class="btn btn-primary" onclick="startTournament()">Start Tournament</button>
+            {% endif %}
+            {% if tournament.status == 'in_progress' or tournament.status == 'completed' %}
+                <button class="btn btn-primary" onclick="recalculateScores()">Recalculate Scores</button>
+            {% endif %}
+            <!-- Add a delete button that's always visible -->
+            <button class="btn btn-danger" onclick="openDeleteTournamentModal()">Delete Tournament</button>
+        </div>
+        
+        <hr>
+        
+        <div class="tournament-participants-section">
+            <div class="section-header">
+                <h2>Participants</h2>
+                {% if tournament.status == 'scheduled' %}
+                <button class="btn btn-primary" onclick="openAddParticipantModal()">Add Bot</button>
+                {% endif %}
+            </div>
+            
+            <div id="tournamentParticipantsList" class="participants-list">
+                <p>Loading participants...</p>
+            </div>
+        </div>
+        
+        <hr>
+        
+        <div class="tournament-matches-section">
+            <h2>Matches</h2>
+            <div id="tournamentMatchesList" class="matches-list">
+                <p>Loading matches...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Bot Modal -->
+    <div id="addParticipantModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddParticipantModal()">&times;</span>
+            <h3>Add Bots to Tournament</h3>
+            <div class="search-container">
+                <input type="text" id="botSearchInput" placeholder="Search bots..." oninput="filterBots()">
+            </div>
+            <div class="bot-selection-info">
+                <p>Select bots to add to the tournament (only active bots shown):</p>
+                <div class="bot-selection-actions">
+                    <button id="toggleSelectAllBtn" class="btn btn-secondary" onclick="toggleSelectAll()">Select All</button>
+                    <span id="selectedCount" class="selected-count">0 selected</span>
+                </div>
+            </div>
+            <div id="allBotsContainer" class="search-results">
+                <!-- Bots will be loaded here -->
+                <p>Loading bots...</p>
+            </div>
+            <div id="addParticipantMessage"></div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="addSelectedBots()">Add Selected Bots</button>
+                <button class="btn btn-secondary" onclick="closeAddParticipantModal()">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Confirm Delete Tournament Modal -->
+    <div id="confirmDeleteModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeConfirmDeleteModal()">&times;</span>
+            <h3>Delete Tournament</h3>
+            <p>Are you sure you want to permanently delete this tournament? This will remove all matches, results, and participant data. This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeConfirmDeleteModal()">No, Keep Tournament</button>
+                <button class="btn btn-danger" onclick="confirmDeleteTournament()">Yes, Delete Tournament</button>
+            </div>
+            <div id="deleteTournamentMessage"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tournament-detail-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .breadcrumbs {
+        margin-bottom: 20px;
+    }
+    
+    .breadcrumbs a {
+        color: #4285F4;
+        text-decoration: none;
+    }
+    
+    .tournament-profile-card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 30px;
+    }
+    
+    .tournament-header h1 {
+        margin: 0 0 5px 0;
+        color: #333;
+    }
+    
+    .tournament-meta {
+        color: #666;
+        margin: 0 0 10px 0;
+    }
+    
+    .tournament-description {
+        color: #333;
+        margin: 10px 0;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+    }
+    
+    .badge-scheduled {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .badge-in_progress {
+        background-color: #cce5ff;
+        color: #004085;
+    }
+    
+    .badge-completed {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .badge-cancelled {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    hr {
+        border: 0;
+        height: 1px;
+        background-color: #eee;
+        margin: 20px 0;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .participants-list, .matches-list {
+        margin-top: 20px;
+    }
+    
+    .participant-card, .match-card {
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        background-color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .participant-info h5, .match-info h5 {
+        margin: 0 0 5px 0;
+    }
+    
+    .btn {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-primary {
+        background-color: #4285F4;
+        color: white;
+    }
+    
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+    
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+    }
+    
+    .modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 20px;
+        border-radius: 8px;
+        width: 60%;
+        max-width: 500px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .search-container {
+        display: flex;
+        margin-bottom: 20px;
+    }
+    
+    .search-container input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px 0 0 4px;
+    }
+    
+    .search-container button {
+        padding: 8px 15px;
+        background-color: #4285F4;
+        color: white;
+        border: none;
+        border-radius: 0 4px 4px 0;
+        cursor: pointer;
+    }
+    
+    .search-results {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .search-result-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+    
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+</style>
+
+<script>
+    // Function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Track current tournament bots and selection state
+    let currentTournamentBotIds = [];
+    let allBotsSelected = false;
+    
+    // Function to load tournament participants
+    function loadTournamentParticipants() {
+        console.log("Fetching tournament details...");
+        fetch(`/users/api/tournaments/{{ tournament.id }}/`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Tournament data:", data);
+                
+                // Store current tournament bot IDs
+                currentTournamentBotIds = data.participants ? data.participants.map(p => p.bot_id) : [];
+                
+                const participantsList = document.getElementById('tournamentParticipantsList');
+                
+                if (!data.participants || data.participants.length === 0) {
+                    console.log("No participants found");
+                    participantsList.innerHTML = `
+                        <div class="no-participants-message">
+                            No bots in this tournament yet. Add bots using the button above.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                console.log(`Found ${data.participants.length} participants`);
+                
+                // Sort participants by score in descending order
+                const sortedParticipants = [...data.participants].sort((a, b) => b.score - a.score);
+                
+                let html = '';
+                
+                sortedParticipants.forEach((participant, index) => {
+                    // Add rank based on sort order
+                    const rank = index + 1;
+                    
+                    html += `
+                        <div class="participant-card">
+                            <div class="participant-info">
+                                <h5>${rank}. ${participant.bot_name}</h5>
+                                <p>Owner: ${participant.owner_email}</p>
+                                <p>Score: <strong>${participant.score}</strong></p>
+                            </div>
+                            {% if tournament.status == 'scheduled' %}
+                            <div class="participant-actions">
+                                <button class="btn btn-danger" onclick="removeParticipant('${participant.bot_id}')">
+                                    Remove
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    `;
+                });
+                
+                participantsList.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading tournament participants:', error);
+                document.getElementById('tournamentParticipantsList').innerHTML = `
+                    <p>Error loading participants. Please try again later.</p>
+                `;
+            });
+    }
+    
+    // Function to load tournament matches
+    function loadTournamentMatches() {
+        fetch(`/users/api/tournaments/{{ tournament.id }}/`)
+            .then(response => response.json())
+            .then(data => {
+                const matchesList = document.getElementById('tournamentMatchesList');
+                
+                if (!data.matches || data.matches.length === 0) {
+                    matchesList.innerHTML = `
+                        <div class="no-matches-message">
+                            No matches have been created yet. 
+                            {% if tournament.status == 'scheduled' %}
+                            Start the tournament to generate matches.
+                            {% endif %}
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                
+                data.matches.forEach(match => {
+                    // Determine result display
+                    let resultDisplay = 'Pending';
+                    if (match.result === 'white_win') {
+                        resultDisplay = `${match.white_bot_name} won`;
+                    } else if (match.result === 'black_win') {
+                        resultDisplay = `${match.black_bot_name} won`;
+                    } else if (match.result === 'draw') {
+                        resultDisplay = 'Draw';
+                    } else if (match.result === 'timeout') {
+                        resultDisplay = 'Timeout';
+                    } else if (match.result === 'error') {
+                        resultDisplay = 'Error';
+                    }
+                    
+                    html += `
+                        <div class="match-card">
+                            <div class="match-info">
+                                <h5>${match.white_bot_name} vs ${match.black_bot_name}</h5>
+                                <p>Status: ${match.status}</p>
+                                <p>Result: ${resultDisplay}</p>
+                                ${match.round ? `<p>Round: ${match.round}</p>` : ''}
+                            </div>
+                            <div class="match-actions">
+                                ${match.pgn_file ? `
+                                <a href="${match.pgn_file}" class="btn btn-primary" target="_blank">
+                                    View PGN
+                                </a>
+                                ` : ''}
+                                ${match.log_file ? `
+                                <a href="${match.log_file}" class="btn btn-secondary" target="_blank">
+                                    View Log
+                                </a>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                matchesList.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading tournament matches:', error);
+                document.getElementById('tournamentMatchesList').innerHTML = `
+                    <p>Error loading matches. Please try again later.</p>
+                `;
+            });
+    }
+    
+    // Modal functions
+    function openAddParticipantModal() {
+        document.getElementById('addParticipantModal').style.display = 'block';
+        document.getElementById('botSearchInput').value = '';
+        document.getElementById('addParticipantMessage').innerHTML = '';
+        loadAllBots(); // Load all bots when opening modal
+    }
+    
+    function closeAddParticipantModal() {
+        document.getElementById('addParticipantModal').style.display = 'none';
+    }
+    
+    // Add these functions to handle the delete modal
+    function openDeleteTournamentModal() {
+        document.getElementById('confirmDeleteModal').style.display = 'block';
+    }
+    
+    function closeConfirmDeleteModal() {
+        document.getElementById('confirmDeleteModal').style.display = 'none';
+        document.getElementById('deleteTournamentMessage').innerHTML = '';
+    }
+    
+    // Modify the confirmDeleteTournament function to use the correct redirect URL
+    function confirmDeleteTournament() {
+        console.log("Attempting to delete tournament...");
+        fetch(`/users/api/tournaments/{{ tournament.id }}/delete_tournament/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            console.log("Response status:", response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Response data:", data);
+            if (data.message) {
+                document.getElementById('deleteTournamentMessage').innerHTML = 
+                    `<div style="color:green">${data.message}</div>`;
+                
+                // Redirect to teacher dashboard after a delay
+                setTimeout(() => {
+                    window.location.href = '{% url "teacher_dashboard" %}';
+                }, 1500);
+            } else if (data.error) {
+                document.getElementById('deleteTournamentMessage').innerHTML = 
+                    `<div style="color:red">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting tournament:', error);
+            document.getElementById('deleteTournamentMessage').innerHTML = 
+                '<div style="color:red">Error deleting tournament. Please try again.</div>';
+        });
+    }
+    
+    // Function to load all active bots that aren't already in the tournament
+    function loadAllBots() {
+        fetch(`/users/api/bots/?status=active`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    document.getElementById('allBotsContainer').innerHTML = 
+                        '<p>No active bots found. Please make sure bots are marked as active.</p>';
+                    return;
+                }
+                
+                // Filter to ensure only active bots are shown
+                const activeBots = data.filter(bot => bot.status === 'active');
+                
+                // Filter out bots already in the tournament
+                const availableBots = activeBots.filter(bot => !currentTournamentBotIds.includes(bot.id));
+                
+                if (availableBots.length === 0) {
+                    document.getElementById('allBotsContainer').innerHTML = 
+                        '<p>All active bots have already been added to this tournament.</p>';
+                    updateSelectedCount(0);
+                    return;
+                }
+                
+                let html = '';
+                availableBots.forEach(bot => {
+                    html += `
+                        <div class="search-result-item" data-bot-name="${bot.name.toLowerCase()}" data-owner="${bot.owner_email.toLowerCase()}">
+                            <div class="bot-info">
+                                <strong>${bot.name}</strong> (${bot.owner_email})
+                            </div>
+                            <button class="btn btn-primary" data-bot-id="${bot.id}" onclick="toggleBotSelection('${bot.id}', this)">
+                                Add
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('allBotsContainer').innerHTML = html;
+                updateSelectedCount(0);
+                
+                // Reset select all state
+                allBotsSelected = false;
+                document.getElementById('toggleSelectAllBtn').textContent = 'Select All';
+            })
+            .catch(error => {
+                console.error('Error loading bots:', error);
+                document.getElementById('allBotsContainer').innerHTML = 
+                    '<p>Error loading bots. Please try again later.</p>';
+                updateSelectedCount(0);
+            });
+    }
+    
+    // Toggle select all/deselect all
+    function toggleSelectAll() {
+        const buttons = document.querySelectorAll('#allBotsContainer .search-result-item button');
+        const toggleBtn = document.getElementById('toggleSelectAllBtn');
+        
+        // Only consider visible items when filtering is applied
+        const visibleButtons = Array.from(buttons).filter(btn => 
+            btn.closest('.search-result-item').style.display !== 'none');
+        
+        if (!visibleButtons.length) return;
+        
+        // Toggle state
+        allBotsSelected = !allBotsSelected;
+        
+        if (allBotsSelected) {
+            // Select all visible bots
+            visibleButtons.forEach(button => {
+                if (!button.classList.contains('selected')) {
+                    button.classList.add('selected');
+                    button.textContent = 'Remove';
+                }
+            });
+            toggleBtn.textContent = 'Deselect All';
+        } else {
+            // Deselect all
+            visibleButtons.forEach(button => {
+                if (button.classList.contains('selected')) {
+                    button.classList.remove('selected');
+                    button.textContent = 'Add';
+                }
+            });
+            toggleBtn.textContent = 'Select All';
+        }
+        
+        updateSelectedCount(document.querySelectorAll('#allBotsContainer .search-result-item button.selected').length);
+    }
+    
+    // Update selected count display
+    function updateSelectedCount(count) {
+        document.getElementById('selectedCount').textContent = `${count} selected`;
+    }
+    
+    // Function to toggle bot selection
+    function toggleBotSelection(botId, button) {
+        if (button.classList.contains('selected')) {
+            button.classList.remove('selected');
+            button.textContent = 'Add';
+        } else {
+            button.classList.add('selected');
+            button.textContent = 'Remove';
+        }
+        
+        const selectedCount = document.querySelectorAll('#allBotsContainer .search-result-item button.selected').length;
+        updateSelectedCount(selectedCount);
+        
+        // Update select all button text based on selection state
+        const visibleButtons = getVisibleButtons();
+        const selectedButtons = document.querySelectorAll('#allBotsContainer .search-result-item button.selected');
+        
+        if (visibleButtons.length === selectedButtons.length && visibleButtons.length > 0) {
+            document.getElementById('toggleSelectAllBtn').textContent = 'Deselect All';
+            allBotsSelected = true;
+        } else {
+            document.getElementById('toggleSelectAllBtn').textContent = 'Select All';
+            allBotsSelected = false;
+        }
+    }
+    
+    // Helper function to get visible buttons
+    function getVisibleButtons() {
+        const buttons = document.querySelectorAll('#allBotsContainer .search-result-item button');
+        return Array.from(buttons).filter(btn => 
+            btn.closest('.search-result-item').style.display !== 'none');
+    }
+    
+    // Function to add selected bots
+    function addSelectedBots() {
+        const selectedButtons = document.querySelectorAll('#allBotsContainer .search-result-item button.selected');
+        
+        if (selectedButtons.length === 0) {
+            document.getElementById('addParticipantMessage').innerHTML = 
+                '<div style="color:orange">Please select at least one bot to add.</div>';
+            return;
+        }
+        
+        document.getElementById('addParticipantMessage').innerHTML = 
+            '<div style="color:blue">Adding bots to tournament...</div>';
+        
+        // Get all bot IDs from selected buttons
+        const botIds = Array.from(selectedButtons).map(button => button.getAttribute('data-bot-id'));
+        
+        // Initialize tracking variables
+        let successCount = 0;
+        let failCount = 0;
+        let addedBotIds = [];
+        
+        // Create a function to add bots sequentially
+        async function addBotsSequentially() {
+            for (const botId of botIds) {
+                try {
+                    const response = await fetch(`/users/api/tournaments/{{ tournament.id }}/add_participant/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ bot_id: botId })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.message) {
+                        successCount++;
+                        addedBotIds.push(botId);
+                    } else if (data.error) {
+                        failCount++;
+                        console.error(`Error adding bot ${botId}: ${data.error}`);
+                    }
+                } catch (error) {
+                    failCount++;
+                    console.error(`Exception adding bot ${botId}: ${error}`);
+                }
+                
+                // Update message as we go
+                document.getElementById('addParticipantMessage').innerHTML = 
+                    `<div style="color:blue">Added ${successCount}/${botIds.length} bots...</div>`;
+            }
+            
+            // Final success message
+            if (successCount > 0) {
+                document.getElementById('addParticipantMessage').innerHTML = 
+                    `<div style="color:green">Successfully added ${successCount} bot(s)${failCount > 0 ? `. Failed to add ${failCount} bot(s).` : ''}</div>`;
+                
+                // Update current tournament bots
+                currentTournamentBotIds = [...currentTournamentBotIds, ...addedBotIds];
+                
+                // Reload participants list
+                loadTournamentParticipants();
+                
+                // Remove added bots from the selection list
+                selectedButtons.forEach(button => {
+                    // Only remove if this button's bot ID was successfully added
+                    if (addedBotIds.includes(button.getAttribute('data-bot-id'))) {
+                        const item = button.closest('.search-result-item');
+                        if (item) {
+                            item.remove();
+                        }
+                    }
+                });
+                
+                // Update selected count
+                updateSelectedCount(0);
+                allBotsSelected = false;
+                document.getElementById('toggleSelectAllBtn').textContent = 'Select All';
+                
+                // If all bots added, show message
+                if (document.querySelectorAll('#allBotsContainer .search-result-item').length === 0) {
+                    document.getElementById('allBotsContainer').innerHTML = 
+                        '<p>All active bots have already been added to this tournament.</p>';
+                }
+            } else {
+                document.getElementById('addParticipantMessage').innerHTML = 
+                    '<div style="color:red">Failed to add any bots to the tournament.</div>';
+            }
+        }
+        
+        // Start the sequential addition process
+        addBotsSequentially();
+    }
+    
+    // Filter bots based on search input
+    function filterBots() {
+        const searchInput = document.getElementById('botSearchInput').value.toLowerCase();
+        const botItems = document.querySelectorAll('#allBotsContainer .search-result-item');
+        let visibleCount = 0;
+        
+        botItems.forEach(item => {
+            const botName = item.getAttribute('data-bot-name');
+            const ownerEmail = item.getAttribute('data-owner');
+            
+            if (botName.includes(searchInput) || ownerEmail.includes(searchInput)) {
+                item.style.display = 'flex';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        
+        // Update select all button state based on visible items
+        updateSelectAllButtonAfterFilter();
+    }
+    
+    // Update select all button state after filtering
+    function updateSelectAllButtonAfterFilter() {
+        const visibleButtons = getVisibleButtons();
+        const selectedVisibleButtons = visibleButtons.filter(btn => btn.classList.contains('selected'));
+        
+        if (visibleButtons.length > 0 && visibleButtons.length === selectedVisibleButtons.length) {
+            document.getElementById('toggleSelectAllBtn').textContent = 'Deselect All';
+            allBotsSelected = true;
+        } else {
+            document.getElementById('toggleSelectAllBtn').textContent = 'Select All';
+            allBotsSelected = false;
+        }
+    }
+    
+    function removeParticipant(botId) {
+        if (!confirm('Are you sure you want to remove this bot from the tournament?')) {
+            return;
+        }
+        
+        fetch(`/users/api/tournaments/{{ tournament.id }}/remove_participant/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ bot_id: botId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                loadTournamentParticipants();
+            } else if (data.error) {
+                alert(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error removing bot from tournament:', error);
+            alert('Error removing bot from tournament. Please try again.');
+        });
+    }
+    
+    function startTournament() {
+        if (!confirm('Are you sure you want to start this tournament? This will generate all matches and cannot be undone.')) {
+            return;
+        }
+        
+        // Default to using rounds (change this if you want different behavior)
+        const useRounds = true;
+        const doubleRoundRobin = false;
+        
+        fetch(`/users/api/tournaments/{{ tournament.id }}/start_tournament/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                use_rounds: useRounds,
+                double_round_robin: doubleRoundRobin
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                // Reload the page to reflect the new tournament status
+                window.location.reload();
+            } else if (data.error) {
+                alert(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error starting tournament:', error);
+            alert('Error starting tournament. Please try again.');
+        });
+    }
+    
+    function recalculateScores() {
+        if (!confirm('Are you sure you want to recalculate all tournament scores?')) {
+            return;
+        }
+        
+        fetch(`/users/api/tournaments/{{ tournament.id }}/recalculate_scores/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                // Reload the page to show updated scores
+                window.location.reload();
+            } else if (data.error) {
+                alert(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error recalculating scores:', error);
+            alert('Error recalculating tournament scores. Please try again.');
+        });
+    }
+    
+    // Load tournament data when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadTournamentParticipants();
+        loadTournamentMatches();
+        
+        // Allow searching bots with Enter key
+        document.getElementById('botSearchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                filterBots(); // Change searchBots to filterBots
+            }
+        });
+    });
+</script>
+{% endblock %}

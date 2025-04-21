@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="class-detail-container">
+    <div class="breadcrumbs">
+        <a href="{% url 'teacher_dashboard' %}">← Back to Dashboard</a>
+    </div>
+    
+    <div class="class-profile-card">
+        <div class="class-header">
+            <h1>{{ class_group.name }}</h1>
+            <p class="class-meta">Created: {{ class_group.created_at|date:"F j, Y" }}</p>
+            <p class="class-description">{{ class_group.description }}</p>
+        </div>
+        
+        <hr>
+        
+        <div class="class-students-section">
+            <div class="section-header">
+                <h2>Students</h2>
+                <button class="btn btn-primary" onclick="openAddStudentModal()">Add Student</button>
+            </div>
+            
+            <div id="classStudentsList" class="students-list">
+                <p>Loading students...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Student Modal -->
+    <div id="addStudentModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddStudentModal()">&times;</span>
+            <h3>Add Student to Class</h3>
+            <div class="search-container">
+                <input type="text" id="studentSearchInput" placeholder="Search students by email...">
+                <button onclick="searchStudents()">Search</button>
+            </div>
+            <div id="searchResults" class="search-results">
+                <!-- Search results will be displayed here -->
+            </div>
+            <div id="addStudentMessage"></div>
+        </div>
+    </div>
+    
+    <!-- Confirm Remove Student Modal -->
+    <div id="confirmRemoveModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeConfirmRemoveModal()">&times;</span>
+            <h3>Remove Student from Class</h3>
+            <p>Are you sure you want to remove this student from the class?</p>
+            <input type="hidden" id="removeStudentId">
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeConfirmRemoveModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmRemoveStudent()">Remove</button>
+            </div>
+            <div id="removeStudentMessage"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .class-detail-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .breadcrumbs {
+        margin-bottom: 20px;
+    }
+    
+    .breadcrumbs a {
+        color: #4285F4;
+        text-decoration: none;
+    }
+    
+    .class-profile-card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 30px;
+    }
+    
+    .class-header h1 {
+        margin: 0 0 5px 0;
+        color: #333;
+    }
+    
+    .class-meta {
+        color: #666;
+        margin: 0 0 10px 0;
+    }
+    
+    .class-description {
+        color: #333;
+        margin: 10px 0;
+    }
+    
+    hr {
+        border: 0;
+        height: 1px;
+        background-color: #eee;
+        margin: 20px 0;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .students-list {
+        margin-top: 20px;
+    }
+    
+    .student-card {
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        background-color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .student-info h5 {
+        margin: 0 0 5px 0;
+    }
+    
+    .btn {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-primary {
+        background-color: #4285F4;
+        color: white;
+    }
+    
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+    
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+    }
+    
+    .modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 20px;
+        border-radius: 8px;
+        width: 60%;
+        max-width: 500px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .search-container {
+        display: flex;
+        margin-bottom: 20px;
+    }
+    
+    .search-container input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px 0 0 4px;
+    }
+    
+    .search-container button {
+        padding: 8px 15px;
+        background-color: #4285F4;
+        color: white;
+        border: none;
+        border-radius: 0 4px 4px 0;
+        cursor: pointer;
+    }
+    
+    .search-results {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .search-result-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+    
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+</style>
+
+<script>
+    // Function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Function to load class students
+    function loadClassStudents() {
+        fetch(`/users/api/classes/{{ class_group.id }}/`)
+            .then(response => response.json())
+            .then(data => {
+                const studentsListDiv = document.getElementById('classStudentsList');
+                
+                if (!data.students || data.students.length === 0) {
+                    studentsListDiv.innerHTML = `
+                        <div class="no-students-message">
+                            No students in this class yet. Add students using the button above.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                
+                data.students.forEach(student => {
+                    // Format date
+                    const joinedDate = new Date(student.date_joined).toLocaleDateString();
+                    
+                    html += `
+                        <div class="student-card">
+                            <div class="student-info">
+                                <h5>${student.email}</h5>
+                                <p>Joined: ${joinedDate} • Bots: ${student.bot_count}</p>
+                            </div>
+                            <div class="student-actions">
+                                <a href="/users/student/${student.id}/" class="btn btn-primary">
+                                    View Details
+                                </a>
+                                <button class="btn btn-danger" onclick="openRemoveStudentModal(${student.id}, '${student.email}')">
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                studentsListDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading class students:', error);
+                document.getElementById('classStudentsList').innerHTML = `
+                    <p>Error loading students. Please try again later.</p>
+                `;
+            });
+    }
+    
+    // Modal functions
+    function openAddStudentModal() {
+        document.getElementById('addStudentModal').style.display = 'block';
+        document.getElementById('studentSearchInput').value = '';
+        document.getElementById('searchResults').innerHTML = '';
+        document.getElementById('addStudentMessage').innerHTML = '';
+    }
+    
+    function closeAddStudentModal() {
+        document.getElementById('addStudentModal').style.display = 'none';
+    }
+    
+    function openRemoveStudentModal(studentId, email) {
+        document.getElementById('removeStudentId').value = studentId;
+        document.getElementById('confirmRemoveModal').style.display = 'block';
+        document.querySelector('#confirmRemoveModal p').innerHTML = 
+            `Are you sure you want to remove <strong>${email}</strong> from this class?`;
+    }
+    
+    function closeConfirmRemoveModal() {
+        document.getElementById('confirmRemoveModal').style.display = 'none';
+        document.getElementById('removeStudentMessage').innerHTML = '';
+    }
+    
+    function searchStudents() {
+        const searchInput = document.getElementById('studentSearchInput').value;
+        if (!searchInput) {
+            document.getElementById('searchResults').innerHTML = 
+                '<p>Please enter an email to search.</p>';
+            return;
+        }
+        
+        fetch(`/users/api/students/?search=${encodeURIComponent(searchInput)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    document.getElementById('searchResults').innerHTML = 
+                        '<p>No students found matching your search.</p>';
+                    return;
+                }
+                
+                let html = '';
+                data.forEach(student => {
+                    html += `
+                        <div class="search-result-item">
+                            <div>${student.email}</div>
+                            <button class="btn btn-primary" onclick="addStudentToClass(${student.id})">
+                                Add
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('searchResults').innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error searching students:', error);
+                document.getElementById('searchResults').innerHTML = 
+                    '<p>Error searching students. Please try again.</p>';
+            });
+    }
+    
+    function addStudentToClass(studentId) {
+        fetch(`/users/api/classes/{{ class_group.id }}/add_student/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ student_id: studentId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                document.getElementById('addStudentMessage').innerHTML = 
+                    `<div style="color:green">${data.message}</div>`;
+                
+                // Reload students list and close modal after a delay
+                loadClassStudents();
+                setTimeout(() => {
+                    closeAddStudentModal();
+                }, 1500);
+            } else if (data.error) {
+                document.getElementById('addStudentMessage').innerHTML = 
+                    `<div style="color:red">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error adding student to class:', error);
+            document.getElementById('addStudentMessage').innerHTML = 
+                '<div style="color:red">Error adding student to class. Please try again.</div>';
+        });
+    }
+    
+    function confirmRemoveStudent() {
+        const studentId = document.getElementById('removeStudentId').value;
+        
+        fetch(`/users/api/classes/{{ class_group.id }}/remove_student/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ student_id: studentId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                document.getElementById('removeStudentMessage').innerHTML = 
+                    `<div style="color:green">${data.message}</div>`;
+                
+                // Reload students list and close modal after a delay
+                loadClassStudents();
+                setTimeout(() => {
+                    closeConfirmRemoveModal();
+                }, 1500);
+            } else if (data.error) {
+                document.getElementById('removeStudentMessage').innerHTML = 
+                    `<div style="color:red">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error removing student from class:', error);
+            document.getElementById('removeStudentMessage').innerHTML = 
+                '<div style="color:red">Error removing student from class. Please try again.</div>';
+        });
+    }
+    
+    // Load class students when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadClassStudents();
+        
+        // Allow searching students with Enter key
+        document.getElementById('studentSearchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchStudents();
+            }
+        });
+    });
+</script>
+{% endblock %}
