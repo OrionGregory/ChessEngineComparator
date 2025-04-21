@@ -28,6 +28,12 @@ urlpatterns = [
     path('class/<uuid:class_id>/', views.class_detail, name='class_detail'),
     path('tournament/<uuid:tournament_id>/', views.tournament_detail, name='tournament_detail'),
     
+    # Add authentication status endpoint
+    path('api/auth-status/', views.auth_status, name='auth_status'),
+    
+    # Add leaderboard API endpoint
+    path('api/leaderboard/', views.LeaderboardView.as_view(), name='leaderboard'),
+    
     path('api/', include(router.urls)),
     path('', include(router.urls)),
 ]

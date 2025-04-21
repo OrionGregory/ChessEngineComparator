@@ -1,78 +1,58 @@
-from typing import List, Tuple, Dict
-from .models import ChessBot, Tournament, Match, TournamentParticipant
+import itertools
+from typing import Dict, List, Tuple
+from .models import Tournament, ChessBot
 
 def generate_round_robin_matches(tournament: Tournament) -> List[Tuple[ChessBot, ChessBot]]:
     """
-    Generate round-robin tournament pairings for a set of bots.
-    
-    Args:
-        tournament: Tournament object containing participant bots
-    
-    Returns:
-        List of tuples (white_bot, black_bot) representing match pairings
+    Generate a list of matches for a round-robin tournament
+    Returns a list of (white_bot, black_bot) pairs
     """
-    # Get active bots participating in the tournament
-    bots = list(tournament.participants.filter(status='active'))
+    # Get all active participants
+    participants = list(tournament.participants.filter(status='active'))
     
-    # Need at least 2 bots to create matches
-    if len(bots) < 2:
-        return []
+    # Create all possible pairings (each bot plays against all others)
+    matches = []
+    for white_bot, black_bot in itertools.combinations(participants, 2):
+        matches.append((white_bot, black_bot))
     
-    pairings = []
-    
-    # Generate all possible unique pairings
-    for i in range(len(bots)):
-        for j in range(i + 1, len(bots)):
-            # Create a match with bots[i] as white and bots[j] as black
-            pairings.append((bots[i], bots[j]))
-    
-    return pairings
+    return matches
 
 def generate_round_robin_matches_with_rounds(tournament: Tournament) -> Dict[int, List[Tuple[ChessBot, ChessBot]]]:
     """
-    Generate round-robin tournament pairings organized by rounds.
+    Generate matches for a round-robin tournament, organized by rounds
+    Returns a dictionary mapping round numbers to lists of (white_bot, black_bot) pairs
     
-    Args:
-        tournament: Tournament object containing participant bots
-    
-    Returns:
-        Dictionary mapping round numbers to lists of (white_bot, black_bot) pairings
+    Uses algorithm from: https://en.wikipedia.org/wiki/Round-robin_tournament#Scheduling_algorithm
     """
-    # Get active bots participating in the tournament
-    bots = list(tournament.participants.filter(status='active'))
-    n = len(bots)
+    # Get all active participants
+    participants = list(tournament.participants.filter(status='active'))
+    n = len(participants)
     
-    # Need at least 2 bots to create matches
-    if n < 2:
-        return {}
-    
-    # If odd number of participants, add a "bye" placeholder
+    # If odd number of participants, add a dummy participant
     if n % 2 == 1:
-        bots.append(None)
+        participants.append(None)
         n += 1
     
-    # Number of rounds is n-1
     rounds = {}
     
-    # Create a circle algorithm implementation
-    # Keep the first bot fixed and rotate the others
-    for r in range(n - 1):
-        rounds[r + 1] = []  # Round numbers start at 1
+    # n-1 rounds in total
+    for round_num in range(1, n):
+        round_matches = []
         
         # Generate pairings for this round
         for i in range(n // 2):
-            bot1 = bots[i]
-            bot2 = bots[n - 1 - i]
-            
-            # Skip matches involving the "bye" placeholder
-            if bot1 is not None and bot2 is not None:
-                # Alternate who plays white for better fairness
-                if r % 2 == 0:
-                    rounds[r + 1].append((bot1, bot2))
+            # Skip matches involving dummy participant
+            if participants[i] is not None and participants[n - i - 1] is not None:
+                # Alternate white/black for fairness
+                if round_num % 2 == 1:
+                    round_matches.append((participants[i], participants[n - i - 1]))
                 else:
-                    rounds[r + 1].append((bot2, bot1))
+                    round_matches.append((participants[n - i - 1], participants[i]))
         
-        # Rotate the bots (except the first one)
-        bots = [bots[0]] + [bots[-1]] + bots[1:-1]
+        rounds[round_num] = round_matches
+        
+        # Rotate the participants for the next round
+        # Keep first player fixed, rotate others
+        participants = [participants[0]] + [participants[-1]] + participants[1:-1]
     
     return rounds

@@ -15,9 +15,9 @@ from .serializers import (ChessBotSerializer, ChessBotUploadSerializer, StudentS
                          ClassGroupSerializer, ClassGroupDetailSerializer,
                          TournamentSerializer, TournamentDetailSerializer, MatchSerializer)
 from django.db.models import Q
-from .services import generate_round_robin_matches, generate_round_robin_matches_with_rounds
+from django.db import models
+from .services import generate_round_robin_matches, generate_round_robin_matches_with_rounds  # Add this import
 from .tasks import run_chess_match
-from celery import chain, group
 
 def login(request):
     """Render the login page with direct Google OAuth option"""
@@ -756,6 +756,126 @@ class MatchViewSet(viewsets.ModelViewSet):
         
         return Response({"message": "Match execution started"})
 
+class LeaderboardView(APIView):
+    """API endpoint for retrieving leaderboard data"""
+    permission_classes = [IsTeacher]
+    
+    def get(self, request):
+        """Get leaderboard data for active bots"""
+        # Get query parameters
+        tournament_id = request.query_params.get('tournament', 'all')
+        
+        # Get all active bots
+        active_bots = ChessBot.objects.filter(
+            status='active'
+        ).select_related('owner')
+        
+        # Calculate stats for each bot from tournament matches
+        bot_stats = []
+        
+        for bot in active_bots:
+            # Base match query filters
+            match_filters = {'status': 'completed'}
+            
+            # If tournament specified, add tournament filter
+            if tournament_id != 'all':
+                match_filters['tournament__id'] = tournament_id
+            
+            # Calculate wins as white
+            white_wins = Match.objects.filter(
+                white_bot=bot,
+                result='white_win',
+                **match_filters
+            ).count()
+            
+            # Calculate wins as black
+            black_wins = Match.objects.filter(
+                black_bot=bot,
+                result='black_win',
+                **match_filters
+            ).count()
+            
+            # Calculate draws as white
+            white_draws = Match.objects.filter(
+                white_bot=bot,
+                result='draw',
+                **match_filters
+            ).count()
+            
+            # Calculate draws as black
+            black_draws = Match.objects.filter(
+                black_bot=bot,
+                result='draw',
+                **match_filters
+            ).count()
+            
+            # Calculate losses as white
+            white_losses = Match.objects.filter(
+                white_bot=bot,
+                result='black_win',
+                **match_filters
+            ).count()
+            
+            # Calculate losses as black
+            black_losses = Match.objects.filter(
+                black_bot=bot,
+                result='white_win', 
+                **match_filters
+            ).count()
+            
+            # Calculate total games
+            total_games = Match.objects.filter(
+                Q(white_bot=bot) | Q(black_bot=bot),
+                **match_filters
+            ).count()
+            
+            # Skip bots that haven't played any games
+            if total_games == 0:
+                continue
+                
+            # Calculate total stats
+            total_wins = white_wins + black_wins
+            total_draws = white_draws + black_draws
+            total_losses = white_losses + black_losses
+            
+            # Calculate win percentage (draws counted as losses)
+            win_percentage = (total_wins / total_games) * 100 if total_games > 0 else 0
+            
+            # Calculate draw percentage (wins counted as losses)
+            draw_percentage = (total_draws / total_games) * 100 if total_games > 0 else 0
+            
+            # Calculate tournament participations (still show total participations even when filtering)
+            if tournament_id != 'all':
+                tournament_participations = 1 if TournamentParticipant.objects.filter(
+                    bot=bot,
+                    tournament__id=tournament_id
+                ).exists() else 0
+            else:
+                tournament_participations = TournamentParticipant.objects.filter(
+                    bot=bot
+                ).count()
+            
+            # Add bot to stats
+            bot_stats.append({
+                'id': str(bot.id),
+                'name': bot.name,
+                'owner': bot.owner.email,
+                'total_games': total_games,
+                'wins': total_wins,
+                'draws': total_draws,
+                'losses': total_losses,
+                'win_percentage': round(win_percentage, 2),
+                'draw_percentage': round(draw_percentage, 2),
+                'tournament_participations': tournament_participations
+            })
+        
+        # Sort by win percentage (descending)
+        sorted_stats = sorted(bot_stats, key=lambda x: x['win_percentage'], reverse=True)
+        
+        return Response({
+            'leaderboard': sorted_stats
+        })
+
 @login_required
 def confirm_remove_student(request, student_id):
     """Confirmation page before removing a student"""
@@ -774,4 +894,11 @@ def confirm_remove_student(request, student_id):
     
     return render(request, 'users/confirm_remove_student.html', {
         'student': student
+    })
+
+def auth_status(request):
+    """Return the authentication status and role of current user"""
+    return JsonResponse({
+        'authenticated': request.user.is_authenticated,
+        'role': request.user.role if request.user.is_authenticated else None
     })

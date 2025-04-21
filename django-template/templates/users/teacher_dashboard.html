@@ -12,6 +12,7 @@
         <div class="tab-header">
             <button class="tab-button active" onclick="openTab(event, 'students-tab')">Students</button>
             <button class="tab-button" onclick="openTab(event, 'tournaments-tab')">Tournaments</button>
+            <button class="tab-button" onclick="openTab(event, 'leaderboard-tab')">Leaderboard</button>
         </div>
         
         <!-- Students Tab -->
@@ -59,6 +60,26 @@
                     </form>
                     <div id="createTournamentMessage"></div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Leaderboard Tab -->
+        <div id="leaderboard-tab" class="tab-content">
+            <h2>Bot Leaderboard</h2>
+            <p>Performance statistics for all active chess bots.</p>
+            
+            <div class="leaderboard-controls">
+                <div class="tournament-filter">
+                    <label for="tournamentFilter">Filter by tournament:</label>
+                    <select id="tournamentFilter" onchange="loadLeaderboard()">
+                        <option value="all">All Tournaments</option>
+                        <!-- Tournament options will be loaded dynamically -->
+                    </select>
+                </div>
+            </div>
+            
+            <div id="leaderboardTable" class="leaderboard-table">
+                <!-- Loading message moved to loadLeaderboard function -->
             </div>
         </div>
     </div>
@@ -254,6 +275,73 @@
         gap: 10px;
         margin-top: 20px;
     }
+    
+    /* Leaderboard styles */
+    .leaderboard-controls {
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .tournament-filter {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .tournament-filter select {
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+    }
+    
+    .leaderboard-table {
+        overflow-x: auto;
+    }
+    
+    .leaderboard-table table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .leaderboard-table th, 
+    .leaderboard-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .leaderboard-table th {
+        background-color: #f5f5f5;
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+    }
+    
+    .leaderboard-table tr:hover {
+        background-color: #f1f1f1;
+    }
+    
+    .leaderboard-table .rank {
+        text-align: center;
+        font-weight: bold;
+    }
+    
+    .leaderboard-table .rank-1 {
+        background-color: gold;
+        color: black;
+    }
+    
+    .leaderboard-table .rank-2 {
+        background-color: silver;
+        color: black;
+    }
+    
+    .leaderboard-table .rank-3 {
+        background-color: #cd7f32; /* bronze */
+        color: white;
+    }
 </style>
 
 <script>
@@ -277,6 +365,9 @@
             loadStudents();
         } else if (tabName === "tournaments-tab") {
             loadTournaments();
+        } else if (tabName === "leaderboard-tab") {
+            loadTournamentOptions();
+            loadLeaderboard();
         }
     }
     
@@ -462,6 +553,9 @@
         // If no hash is present, load students by default (existing behavior)
         if (!window.location.hash) {
             loadStudents();
+        } else if (window.location.hash === '#leaderboard-tab') {
+            loadTournamentOptions();
+            loadLeaderboard();
         }
         
         // Handle tournament creation form
@@ -522,6 +616,9 @@
                     '<div style="color:red">Failed to create tournament. Please try again.</div>';
             });
         });
+        
+        // Load tournament options for the filter dropdown
+        loadTournamentOptions();
     });
     
     // Add these functions to handle tournament deletion from the dashboard
@@ -610,9 +707,145 @@
                     loadStudents();
                 } else if (tabName === "tournaments-tab") {
                     loadTournaments();
+                } else if (tabName === "leaderboard-tab") {
+                    loadTournamentOptions();
+                    loadLeaderboard();
                 }
             }
         }
+    }
+    
+    // Function to load available tournaments for the filter dropdown
+    function loadTournamentOptions() {
+        fetch('/users/api/tournaments/')
+            .then(response => response.json())
+            .then(data => {
+                const filterDropdown = document.getElementById('tournamentFilter');
+                
+                // Keep the "All Tournaments" option
+                filterDropdown.innerHTML = '<option value="all">All Tournaments</option>';
+                
+                // Only add completed tournaments to the dropdown
+                const completedTournaments = data.filter(t => t.status === 'completed');
+                
+                if (completedTournaments.length === 0) {
+                    return;
+                }
+                
+                // Add each completed tournament as an option
+                completedTournaments.forEach(tournament => {
+                    const option = document.createElement('option');
+                    option.value = tournament.id;
+                    option.textContent = tournament.name;
+                    filterDropdown.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading tournament options:', error);
+            });
+    }
+    
+    function loadLeaderboard() {
+        // Show loading message when starting to load
+        document.getElementById('leaderboardTable').innerHTML = `<p>Loading leaderboard data...</p>`;
+        
+        // Get the selected tournament (if any)
+        const tournamentId = document.getElementById('tournamentFilter').value;
+        
+        // Build the API URL based on whether a tournament is selected
+        const url = tournamentId === 'all' 
+            ? '/users/api/leaderboard/' 
+            : `/users/api/leaderboard/?tournament=${tournamentId}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const leaderboardDiv = document.getElementById('leaderboardTable');
+                
+                if (!data.leaderboard || data.leaderboard.length === 0) {
+                    leaderboardDiv.innerHTML = `
+                        <p>No bot data available for leaderboard. Bots need to participate in matches to be ranked.</p>
+                    `;
+                    return;
+                }
+                
+                let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Bot Name</th>
+                            <th>Owner</th>
+                            <th>Win %</th>
+                            <th>Draw %</th>
+                            <th>Games</th>
+                            <th>Wins</th>
+                            <th>Draws</th>
+                            <th>Losses</th>
+                            <th>Tournaments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+                
+                // Calculate ranking with ties
+                let rank = 1;
+                let sameRankCount = 0;
+                let previousStats = null;
+                
+                data.leaderboard.forEach((bot, index) => {
+                    // Check if this bot has the same stats as the previous one
+                    const currentStats = `${bot.win_percentage}-${bot.draw_percentage}-${bot.total_games}-${bot.wins}-${bot.draws}`;
+                    
+                    // If this isn't the first bot and the stats match the previous bot, keep the same rank
+                    // Otherwise, set the rank to the current position + 1
+                    if (index > 0 && currentStats === previousStats) {
+                        sameRankCount++;
+                    } else {
+                        // If we just finished a sequence of tied bots, jump rank by that amount
+                        rank += sameRankCount;
+                        sameRankCount = 0;
+                        // Set the rank to the current index + 1
+                        if (index > 0) {
+                            rank = index + 1; 
+                        }
+                    }
+                    
+                    // Store the current stats for the next iteration
+                    previousStats = currentStats;
+                    
+                    // Apply special styling to top 3 positions
+                    const rankClass = rank <= 3 ? `rank-${rank}` : '';
+                    
+                    html += `
+                        <tr>
+                            <td class="rank ${rankClass}">${rank}</td>
+                            <td>${bot.name}</td>
+                            <td>${bot.owner}</td>
+                            <td>${bot.win_percentage}%</td>
+                            <td>${bot.draw_percentage || 0}%</td>
+                            <td>${bot.total_games}</td>
+                            <td>${bot.wins}</td>
+                            <td>${bot.draws}</td>
+                            <td>${bot.losses}</td>
+                            <td>${bot.tournament_participations}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                    </tbody>
+                </table>
+                `;
+                
+                leaderboardDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading leaderboard:', error);
+                document.getElementById('leaderboardTable').innerHTML = `
+                    <p>Error loading leaderboard data. Please try again later.</p>
+                `;
+            });
     }
 </script>
 {% endblock %}
