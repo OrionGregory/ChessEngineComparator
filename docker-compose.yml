@@ -26,7 +26,7 @@ services:
              python manage.py collectstatic --noinput &&
              supervisord -c /etc/supervisord.conf"
     volumes:
-      - ./django-template:/app/django-template
+      - ./ChessApp:/app/ChessApp
     ports:
       - "8000:8000"
     depends_on:

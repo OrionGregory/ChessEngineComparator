@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
 # Set work directory
-WORKDIR /app/django-template
+WORKDIR /app/ChessApp
 
 # Install system dependencies
 RUN apt-get update && \
@@ -13,11 +13,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY django-template/requirements.txt .
+COPY ChessApp/requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Copy project files
-COPY django-template/ .
+COPY ChessApp/ .
 
 # Collect static files (optional, if you use Django staticfiles)
 # RUN python manage.py collectstatic --noinput
