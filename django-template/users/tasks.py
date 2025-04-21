@@ -309,23 +309,38 @@ def run_chess_match(match_id):
             white_loaded = white_runner.load_bot()
             black_loaded = black_runner.load_bot()
             
+            # When a bot fails to load, properly mark it as completed with an error result
             if not white_loaded:
                 log_buffer.write(f"Failed to load white bot: {white_runner.get_error_log()}\n")
-                match.status = 'error'
+                match.status = 'completed'  # Changed from 'error' to 'completed'
                 match.result = 'black_win'  # White bot failed to load, black wins
                 match.completed_at = timezone.now()
                 match.save_log_file(log_buffer.getvalue())
                 match.save()
-                return
+                
+                # Update scores since the match is considered completed
+                match.update_scores()
+                
+                # Check tournament completion after this match
+                if match.tournament:
+                    check_tournament_completion.delay(match.tournament.id)
+                return f"Match {match_id} completed with white bot error"
                 
             if not black_loaded:
                 log_buffer.write(f"Failed to load black bot: {black_runner.get_error_log()}\n")
-                match.status = 'error'
+                match.status = 'completed'  # Changed from 'error' to 'completed'
                 match.result = 'white_win'  # Black bot failed to load, white wins
                 match.completed_at = timezone.now()
                 match.save_log_file(log_buffer.getvalue())
                 match.save()
-                return
+                
+                # Update scores since the match is considered completed
+                match.update_scores()
+                
+                # Check tournament completion after this match
+                if match.tournament:
+                    check_tournament_completion.delay(match.tournament.id)
+                return f"Match {match_id} completed with black bot error"
             
             # Create a shared master board for tracking the game state
             master_board = chess.Board()
@@ -358,7 +373,7 @@ def run_chess_match(match_id):
                 # Make move
                 move = current_runner.make_move()
                 
-                # Handle invalid moves
+                # Handle invalid moves - mark as completed rather than error
                 if move is None:
                     # Invalid move - opponent wins
                     result = "black_win" if master_board.turn == chess.WHITE else "white_win"
@@ -368,7 +383,14 @@ def run_chess_match(match_id):
                     match.completed_at = timezone.now()
                     match.save_log_file(log_buffer.getvalue() + "\n" + current_runner.get_error_log())
                     match.save()
-                    return
+                    
+                    # Update scores since the match is considered completed
+                    match.update_scores()
+                    
+                    # Check tournament completion after this match
+                    if match.tournament:
+                        check_tournament_completion.delay(match.tournament.id)
+                    return f"Match {match_id} completed with invalid move"
                 
                 if move not in master_board.legal_moves:
                     # Illegal move - opponent wins
@@ -379,7 +401,14 @@ def run_chess_match(match_id):
                     match.completed_at = timezone.now()
                     match.save_log_file(log_buffer.getvalue() + "\n" + current_runner.get_error_log())
                     match.save()
-                    return
+                    
+                    # Update scores since the match is considered completed
+                    match.update_scores()
+                    
+                    # Check tournament completion after this match
+                    if match.tournament:
+                        check_tournament_completion.delay(match.tournament.id)
+                    return f"Match {match_id} completed with illegal move"
                     
                 # Make the move on the master board
                 master_board.push(move)
@@ -457,11 +486,28 @@ def run_chess_match(match_id):
                 log_buffer.write(f"Chess match error at {timezone.now()}\n")
                 log_buffer.write(error_message)
                 
-                match.status = 'error'
-                match.result = 'error'
+                # Determine which bot was moving when the error occurred
+                current_turn = "white" if match.is_white_turn else "black"
+                
+                # Assign result based on which bot failed
+                if current_turn == "white":
+                    result = "black_win"  # White's error means black wins
+                else:
+                    result = "white_win"  # Black's error means white wins
+                
+                match.status = 'completed'  # Changed from 'error' to 'completed'
+                match.result = result
                 match.completed_at = timezone.now()
                 match.save_log_file(log_buffer.getvalue())
                 match.save()
+                
+                # Update scores since the match is considered completed
+                if hasattr(match, 'update_scores'):
+                    match.update_scores()
+                
+                # Check tournament completion after this match
+                if match.tournament:
+                    check_tournament_completion.delay(match.tournament.id)
         
         # Update the match and scores using a transaction
         from django.db import transaction
@@ -505,10 +551,35 @@ def run_chess_match(match_id):
         # Handle errors and mark match as failed
         try:
             match = Match.objects.get(id=match_id)
-            match.status = 'error'
-            match.result = 'error'
+            
+            # Set a default result rather than leaving it as error
+            # If we can determine which bot was to move, that bot loses
+            # Otherwise default to white_win (arbitrary choice)
+            result = "white_win"  # Default
+            
+            try:
+                # Try to determine which bot's turn it was
+                if hasattr(match, 'is_white_turn') and not match.is_white_turn:
+                    result = "white_win"  # Black's error means white wins
+                else:
+                    result = "black_win"  # White's error means black wins
+            except:
+                pass  # Stick with default if we can't determine
+            
+            match.status = 'completed'  # Mark as completed with a result
+            match.result = result
             match.log_file = f"Error: {str(e)}"
+            match.completed_at = timezone.now()
             match.save()
+            
+            # Update scores
+            if hasattr(match, 'update_scores'):
+                match.update_scores()
+            
+            # Check tournament completion after this match
+            if hasattr(match, 'tournament') and match.tournament:
+                check_tournament_completion.delay(str(match.tournament.id))
+                
         except:
             pass
         return f"Error running match {match_id}: {str(e)}"
@@ -528,11 +599,13 @@ def check_tournament_completion(tournament_id):
         with transaction.atomic():
             tournament = Tournament.objects.get(id=tournament_id)
             
-            # Count total and completed matches
+            # Count total matches
             total_matches = Match.objects.filter(tournament=tournament).count()
+            
+            # Only count completed matches (error matches should now be marked as completed)
             completed_matches = Match.objects.filter(
                 tournament=tournament,
-                status__in=['completed', 'error']
+                status='completed'
             ).count()
             
             # If all matches are completed, mark the tournament as completed
