@@ -24,7 +24,7 @@ import CodeIcon from '@mui/icons-material/Code';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import ChessIcon from '@mui/icons-material/Casino';
-import { Link, useHistory } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 
 const Logo = styled(Box)(({ theme }) => ({
@@ -37,7 +37,6 @@ const Navigation = ({ isAuthenticated, userData }) => {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const history = useHistory();
 
   const handleLogout = async () => {
     try {
@@ -58,13 +57,6 @@ const Navigation = ({ isAuthenticated, userData }) => {
       localStorage.removeItem('userData');
       window.location.href = '/login';
     }
-  };
-  
-  // Helper function to get CSRF token from cookies
-  const getCookie = (name) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
   };
 
   const toggleDrawer = () => {
@@ -89,6 +81,7 @@ const Navigation = ({ isAuthenticated, userData }) => {
       <List>
         {navItems.map((item) => (
           <ListItem 
+            button
             component={Link} 
             key={item.text} 
             to={item.path}
@@ -102,7 +95,7 @@ const Navigation = ({ isAuthenticated, userData }) => {
       </List>
       <Divider />
       <List>
-        <ListItem onClick={handleLogout} sx={{ cursor: 'pointer' }}>
+        <ListItem button onClick={handleLogout} sx={{ cursor: 'pointer' }}>
           <ListItemIcon><ExitToAppIcon /></ListItemIcon>
           <ListItemText primary="Logout" />
         </ListItem>

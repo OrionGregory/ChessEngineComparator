@@ -54,13 +54,6 @@ def google_login(request):
     # Using django-allauth's URL pattern
     return redirect('/accounts/google/login/?process=login&next=' + next_url)
 
-def logout_view(request):
-    """
-    Logs out the user and returns success status
-    """
-    logout(request)
-    return JsonResponse({'success': True})
-
 # Add this function if you haven't already defined it
 def join_tournament(request, id):
     """
