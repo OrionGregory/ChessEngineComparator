@@ -101,14 +101,90 @@ class Tournament(models.Model):
         self.save()
         
     def complete_tournament(self):
-        self.status = 'completed'
-        self.completed_at = timezone.now()
-        self.save()
+        """Mark tournament as complete and finalize scores"""
+        # First recalculate all scores to ensure they're accurate
+        self.recalculate_scores()
+        
+        # Then ensure tournament is marked as completed
+        if self.status != 'completed':
+            self.status = 'completed'
+            self.completed_at = timezone.now() 
+            self.save()
         
     def cancel_tournament(self):
         self.status = 'cancelled'
         self.save()
-
+    
+    def recalculate_scores(self):
+        """Reset and recalculate scores for all participants"""
+        from django.db import transaction
+        
+        with transaction.atomic():
+            # Reset all scores to zero
+            TournamentParticipant.objects.filter(tournament=self).update(score=0.0)
+            
+            # Get all completed matches and update scores
+            completed_matches = Match.objects.filter(
+                tournament=self,
+                status='completed'
+            )
+            
+            # Process each match
+            for match in completed_matches:
+                if match.result == 'white_win':
+                    try:
+                        participant = TournamentParticipant.objects.get(
+                            tournament=self,
+                            bot=match.white_bot
+                        )
+                        participant.score += 1.0
+                        participant.save()
+                    except TournamentParticipant.DoesNotExist:
+                        pass
+                    
+                elif match.result == 'black_win':
+                    try:
+                        participant = TournamentParticipant.objects.get(
+                            tournament=self,
+                            bot=match.black_bot
+                        )
+                        participant.score += 1.0
+                        participant.save()
+                    except TournamentParticipant.DoesNotExist:
+                        pass
+                    
+                elif match.result == 'draw':
+                    try:
+                        white_participant = TournamentParticipant.objects.get(
+                            tournament=self,
+                            bot=match.white_bot
+                        )
+                        white_participant.score += 0.5
+                        white_participant.save()
+                    except TournamentParticipant.DoesNotExist:
+                        pass
+                        
+                    try:
+                        black_participant = TournamentParticipant.objects.get(
+                            tournament=self,
+                            bot=match.black_bot
+                        )
+                        black_participant.score += 0.5
+                        black_participant.save()
+                    except TournamentParticipant.DoesNotExist:
+                        pass
+            
+            # Check if tournament should be marked as complete
+            if self.status == 'in_progress':
+                total_matches = Match.objects.filter(tournament=self).count()
+                completed_count = completed_matches.count()
+                
+                if total_matches > 0 and total_matches == completed_count:
+                    self.status = 'completed'
+                    self.completed_at = timezone.now()
+                    self.save()
+            
+            return True
 
 class TournamentParticipant(models.Model):
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE)
@@ -190,7 +266,49 @@ class Match(models.Model):
         """Save the log content to the log_file field"""
         log_file = ContentFile(log_content.encode('utf-8'))
         self.log_file.save(f"match_{self.id}_log.txt", log_file)
-
+    
+    def update_scores(self):
+        """Update tournament participant scores based on match results"""
+        # Only process if match is completed and part of a tournament
+        if self.status != 'completed' or not self.tournament:
+            return False
+            
+        # Get participants
+        try:
+            white_participant = TournamentParticipant.objects.get(
+                tournament=self.tournament,
+                bot=self.white_bot
+            )
+            
+            black_participant = TournamentParticipant.objects.get(
+                tournament=self.tournament,
+                bot=self.black_bot
+            )
+            
+            # Update scores based on match result
+            if self.result == 'white_win':
+                white_participant.score += 1.0
+                white_participant.save()
+                return True
+            elif self.result == 'black_win':
+                black_participant.score += 1.0
+                black_participant.save()
+                return True
+            elif self.result == 'draw':
+                white_participant.score += 0.5
+                black_participant.score += 0.5
+                white_participant.save()
+                black_participant.save()
+                return True
+                
+            return False  # Unrecognized result
+            
+        except TournamentParticipant.DoesNotExist:
+            return False  # Participant not found
+        except Exception as e:
+            import logging
+            logging.error(f"Error updating scores: {str(e)}")
+            return False
 
 class ClassGroup(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

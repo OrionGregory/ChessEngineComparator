@@ -685,6 +685,22 @@ class TournamentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=True, methods=['post'])
+    def recalculate_scores(self, request, pk=None):
+        """Manually recalculate scores for a tournament"""
+        tournament = self.get_object()
+        
+        if tournament.status not in ['in_progress', 'completed']:
+            return Response(
+                {"error": "Can only recalculate scores for in-progress or completed tournaments"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Recalculate scores
+        tournament.recalculate_scores()
+        
+        return Response({"message": "Tournament scores recalculated successfully"})
+
 class MatchViewSet(viewsets.ModelViewSet):
     """API endpoint for managing matches"""
     queryset = Match.objects.all()

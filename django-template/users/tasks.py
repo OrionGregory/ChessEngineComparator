@@ -263,216 +263,295 @@ class ChessBotRunner:
 
 @shared_task
 def run_chess_match(match_id):
-    """
-    Celery task to run a chess match between two bots
-    
-    Args:
-        match_id: UUID of the Match object
-    """
-    match = None
-    log_buffer = io.StringIO()
+    """Run a chess match between two bots"""
+    from .models import Match, Tournament
+    import time
     
     try:
-        # Get the match from the database
         match = Match.objects.get(id=match_id)
         
+        # Skip if match is already completed
+        if match.status == 'completed':
+            return f"Match {match_id} already completed"
+            
         # Update match status
         match.status = 'in_progress'
         match.started_at = timezone.now()
         match.save()
         
-        # Create log buffer
-        log_buffer.write(f"Chess match started at {match.started_at}\n")
-        log_buffer.write(f"White: {match.white_bot.name} (v{match.white_bot.version})\n")
-        log_buffer.write(f"Black: {match.black_bot.name} (v{match.black_bot.version})\n\n")
+        # Run the match (your existing code here)
+        match = None
+        log_buffer = io.StringIO()
         
-        # Get the file paths for both bots
-        white_bot_path = match.white_bot.file_path.path
-        black_bot_path = match.black_bot.file_path.path
-        
-        # Create bot runners
-        white_runner = ChessBotRunner(white_bot_path, match.white_bot.name, is_white=True)
-        black_runner = ChessBotRunner(black_bot_path, match.black_bot.name, is_white=False)
-        
-        # Load bots
-        white_loaded = white_runner.load_bot()
-        black_loaded = black_runner.load_bot()
-        
-        if not white_loaded:
-            log_buffer.write(f"Failed to load white bot: {white_runner.get_error_log()}\n")
-            match.status = 'error'
-            match.result = 'black_win'  # White bot failed to load, black wins
-            match.completed_at = timezone.now()
-            match.save_log_file(log_buffer.getvalue())
+        try:
+            # Get the match from the database
+            match = Match.objects.get(id=match_id)
+            
+            # Update match status
+            match.status = 'in_progress'
+            match.started_at = timezone.now()
             match.save()
-            return
             
-        if not black_loaded:
-            log_buffer.write(f"Failed to load black bot: {black_runner.get_error_log()}\n")
-            match.status = 'error'
-            match.result = 'white_win'  # Black bot failed to load, white wins
-            match.completed_at = timezone.now()
-            match.save_log_file(log_buffer.getvalue())
-            match.save()
-            return
-        
-        # Create a shared master board for tracking the game state
-        master_board = chess.Board()
-        
-        # Create new game and pgn for recording
-        game = chess.pgn.Game()
-        game.headers["Event"] = f"Tournament {match.tournament.name}"
-        game.headers["White"] = match.white_bot.name
-        game.headers["Black"] = match.black_bot.name
-        game.headers["Date"] = timezone.now().strftime("%Y.%m.%d")
-        
-        # Keep track of move number and current node in the pgn
-        move_count = 0
-        node = game
-        
-        # Game loop
-        while not master_board.is_game_over() and move_count < MAX_MOVES:
-            move_count += 1
-            current_turn = "White" if master_board.turn == chess.WHITE else "Black"
-            log_buffer.write(f"Move {move_count} ({current_turn}): ")
+            # Create log buffer
+            log_buffer.write(f"Chess match started at {match.started_at}\n")
+            log_buffer.write(f"White: {match.white_bot.name} (v{match.white_bot.version})\n")
+            log_buffer.write(f"Black: {match.black_bot.name} (v{match.black_bot.version})\n\n")
             
-            # Get the runner for the current player
-            current_runner = white_runner if master_board.turn == chess.WHITE else black_runner
+            # Get the file paths for both bots
+            white_bot_path = match.white_bot.file_path.path
+            black_bot_path = match.black_bot.file_path.path
             
-            # Make sure the current player's board is correct
-            if current_runner.bot_instance.board.fen() != master_board.fen():
-                log_buffer.write(f"\nSynchronizing {current_turn}'s board state...\n")
-                current_runner.bot_instance.board = chess.Board(master_board.fen())
+            # Create bot runners
+            white_runner = ChessBotRunner(white_bot_path, match.white_bot.name, is_white=True)
+            black_runner = ChessBotRunner(black_bot_path, match.black_bot.name, is_white=False)
             
-            # Make move
-            move = current_runner.make_move()
+            # Load bots
+            white_loaded = white_runner.load_bot()
+            black_loaded = black_runner.load_bot()
             
-            # Handle invalid moves
-            if move is None:
-                # Invalid move - opponent wins
-                result = "black_win" if master_board.turn == chess.WHITE else "white_win"
-                log_buffer.write(f"Invalid move by {current_turn}. None\n")
-                match.status = 'completed'
-                match.result = result
+            if not white_loaded:
+                log_buffer.write(f"Failed to load white bot: {white_runner.get_error_log()}\n")
+                match.status = 'error'
+                match.result = 'black_win'  # White bot failed to load, black wins
                 match.completed_at = timezone.now()
-                match.save_log_file(log_buffer.getvalue() + "\n" + current_runner.get_error_log())
-                match.save()
-                return
-            
-            if move not in master_board.legal_moves:
-                # Illegal move - opponent wins
-                result = "black_win" if master_board.turn == chess.WHITE else "white_win"
-                log_buffer.write(f"Illegal move by {current_turn}: {move.uci()}\n")
-                match.status = 'completed'
-                match.result = result
-                match.completed_at = timezone.now()
-                match.save_log_file(log_buffer.getvalue() + "\n" + current_runner.get_error_log())
+                match.save_log_file(log_buffer.getvalue())
                 match.save()
                 return
                 
-            # Make the move on the master board
-            master_board.push(move)
+            if not black_loaded:
+                log_buffer.write(f"Failed to load black bot: {black_runner.get_error_log()}\n")
+                match.status = 'error'
+                match.result = 'white_win'  # Black bot failed to load, white wins
+                match.completed_at = timezone.now()
+                match.save_log_file(log_buffer.getvalue())
+                match.save()
+                return
             
-            # Record in PGN
-            node = node.add_variation(move)
+            # Create a shared master board for tracking the game state
+            master_board = chess.Board()
             
-            # Log the move
-            log_buffer.write(f"{move.uci()}\n")
+            # Create new game and pgn for recording
+            game = chess.pgn.Game()
+            game.headers["Event"] = f"Tournament {match.tournament.name}"
+            game.headers["White"] = match.white_bot.name
+            game.headers["Black"] = match.black_bot.name
+            game.headers["Date"] = timezone.now().strftime("%Y.%m.%d")
             
-            # Game over check - don't need to update opponent if game is over
-            if master_board.is_game_over():
-                break
+            # Keep track of move number and current node in the pgn
+            move_count = 0
+            node = game
             
-            # Synchronize the opponent's board with the master board
-            opponent_runner = black_runner if master_board.turn == chess.WHITE else white_runner
-            opponent_runner.bot_instance.board = chess.Board(master_board.fen())
+            # Game loop
+            while not master_board.is_game_over() and move_count < MAX_MOVES:
+                move_count += 1
+                current_turn = "White" if master_board.turn == chess.WHITE else "Black"
+                log_buffer.write(f"Move {move_count} ({current_turn}): ")
+                
+                # Get the runner for the current player
+                current_runner = white_runner if master_board.turn == chess.WHITE else black_runner
+                
+                # Make sure the current player's board is correct
+                if current_runner.bot_instance.board.fen() != master_board.fen():
+                    log_buffer.write(f"\nSynchronizing {current_turn}'s board state...\n")
+                    current_runner.bot_instance.board = chess.Board(master_board.fen())
+                
+                # Make move
+                move = current_runner.make_move()
+                
+                # Handle invalid moves
+                if move is None:
+                    # Invalid move - opponent wins
+                    result = "black_win" if master_board.turn == chess.WHITE else "white_win"
+                    log_buffer.write(f"Invalid move by {current_turn}. None\n")
+                    match.status = 'completed'
+                    match.result = result
+                    match.completed_at = timezone.now()
+                    match.save_log_file(log_buffer.getvalue() + "\n" + current_runner.get_error_log())
+                    match.save()
+                    return
+                
+                if move not in master_board.legal_moves:
+                    # Illegal move - opponent wins
+                    result = "black_win" if master_board.turn == chess.WHITE else "white_win"
+                    log_buffer.write(f"Illegal move by {current_turn}: {move.uci()}\n")
+                    match.status = 'completed'
+                    match.result = result
+                    match.completed_at = timezone.now()
+                    match.save_log_file(log_buffer.getvalue() + "\n" + current_runner.get_error_log())
+                    match.save()
+                    return
+                    
+                # Make the move on the master board
+                master_board.push(move)
+                
+                # Record in PGN
+                node = node.add_variation(move)
+                
+                # Log the move
+                log_buffer.write(f"{move.uci()}\n")
+                
+                # Game over check - don't need to update opponent if game is over
+                if master_board.is_game_over():
+                    break
+                
+                # Synchronize the opponent's board with the master board
+                opponent_runner = black_runner if master_board.turn == chess.WHITE else white_runner
+                opponent_runner.bot_instance.board = chess.Board(master_board.fen())
+            
+            # Game finished - determine result
+            log_buffer.write(f"\nGame finished after {move_count} moves.\n")
+            log_buffer.write(f"Result: {master_board.result()}\n")
+            
+            if master_board.is_checkmate():
+                # The side that was checkmated lost
+                result = "black_win" if master_board.turn == chess.WHITE else "white_win"
+                log_buffer.write(f"{'White' if master_board.turn == chess.BLACK else 'Black'} won by checkmate\n")
+            elif master_board.is_stalemate():
+                result = "draw"
+                log_buffer.write("Game ended in stalemate\n")
+            elif master_board.is_insufficient_material():
+                result = "draw"
+                log_buffer.write("Game ended due to insufficient material\n")
+            elif move_count >= MAX_MOVES:
+                result = "draw"
+                log_buffer.write(f"Game ended after maximum number of moves ({MAX_MOVES})\n")
+            else:
+                # Other draw conditions (50-move rule, threefold repetition)
+                result = "draw"
+                log_buffer.write("Game ended in a draw\n")
+            
+            # Update match with results
+            match.status = 'completed'
+            match.result = result
+            match.completed_at = timezone.now()
+            
+            # Add errors to log if any
+            white_errors = white_runner.get_error_log()
+            black_errors = black_runner.get_error_log()
+            
+            if white_errors:
+                log_buffer.write(f"\nWhite bot errors:\n{white_errors}\n")
+            if black_errors:
+                log_buffer.write(f"\nBlack bot errors:\n{black_errors}\n")
+            
+            # Save PGN
+            pgn_string = str(game)
+            pgn_file = ContentFile(pgn_string.encode('utf-8'))
+            match.pgn_file.save(f"match_{match.id}.pgn", pgn_file)
+            
+            # Save log
+            match.save_log_file(log_buffer.getvalue())
+            
+            # Save match
+            match.save()
+            
+            # Check if tournament is complete
+            check_tournament_completion.delay(match.tournament.id)
+            
+        except Exception as e:
+            error_message = f"Error executing match: {str(e)}\n{traceback.format_exc()}"
+            logger.error(error_message)
+            
+            if match:
+                # Save the error to the match log
+                log_buffer.write(f"Chess match error at {timezone.now()}\n")
+                log_buffer.write(error_message)
+                
+                match.status = 'error'
+                match.result = 'error'
+                match.completed_at = timezone.now()
+                match.save_log_file(log_buffer.getvalue())
+                match.save()
         
-        # Game finished - determine result
-        log_buffer.write(f"\nGame finished after {move_count} moves.\n")
-        log_buffer.write(f"Result: {master_board.result()}\n")
+        # Update the match and scores using a transaction
+        from django.db import transaction
         
-        if master_board.is_checkmate():
-            # The side that was checkmated lost
-            result = "black_win" if master_board.turn == chess.WHITE else "white_win"
-            log_buffer.write(f"{'White' if master_board.turn == chess.BLACK else 'Black'} won by checkmate\n")
-        elif master_board.is_stalemate():
-            result = "draw"
-            log_buffer.write("Game ended in stalemate\n")
-        elif master_board.is_insufficient_material():
-            result = "draw"
-            log_buffer.write("Game ended due to insufficient material\n")
-        elif move_count >= MAX_MOVES:
-            result = "draw"
-            log_buffer.write(f"Game ended after maximum number of moves ({MAX_MOVES})\n")
-        else:
-            # Other draw conditions (50-move rule, threefold repetition)
-            result = "draw"
-            log_buffer.write("Game ended in a draw\n")
+        with transaction.atomic():
+            # Set match as completed with final status
+            match = Match.objects.get(id=match_id)
+            match.status = 'completed'
+            match.completed_at = timezone.now()
+            match.save()
+            
+            # Update scores for this match if the method exists
+            if hasattr(match, 'update_scores'):
+                match.update_scores()
+            
+            # Check if tournament is complete and update scores
+            if match.tournament and match.tournament.status == 'in_progress':
+                # Count total and completed matches
+                total_matches = Match.objects.filter(tournament=match.tournament).count()
+                completed_matches = Match.objects.filter(
+                    tournament=match.tournament,
+                    status='completed'
+                ).count()
+                
+                # If all matches are completed, recalculate all scores
+                if total_matches == completed_matches:
+                    if hasattr(match.tournament, 'recalculate_scores'):
+                        match.tournament.recalculate_scores()
+            
+            # Explicitly trigger tournament completion check to update scores
+            if match.tournament:
+                logger.info(f"Triggering tournament completion check for tournament {match.tournament.id}")
+                # Immediately call check_tournament_completion rather than using delay
+                check_tournament_completion(str(match.tournament.id))
         
-        # Update match with results
-        match.status = 'completed'
-        match.result = result
-        match.completed_at = timezone.now()
+        return f"Match {match_id} completed successfully"
         
-        # Add errors to log if any
-        white_errors = white_runner.get_error_log()
-        black_errors = black_runner.get_error_log()
-        
-        if white_errors:
-            log_buffer.write(f"\nWhite bot errors:\n{white_errors}\n")
-        if black_errors:
-            log_buffer.write(f"\nBlack bot errors:\n{black_errors}\n")
-        
-        # Save PGN
-        pgn_string = str(game)
-        pgn_file = ContentFile(pgn_string.encode('utf-8'))
-        match.pgn_file.save(f"match_{match.id}.pgn", pgn_file)
-        
-        # Save log
-        match.save_log_file(log_buffer.getvalue())
-        
-        # Save match
-        match.save()
-        
-        # Check if tournament is complete
-        check_tournament_completion.delay(match.tournament.id)
-        
+    except Match.DoesNotExist:
+        return f"Match {match_id} not found"
     except Exception as e:
-        error_message = f"Error executing match: {str(e)}\n{traceback.format_exc()}"
-        logger.error(error_message)
-        
-        if match:
-            # Save the error to the match log
-            log_buffer.write(f"Chess match error at {timezone.now()}\n")
-            log_buffer.write(error_message)
-            
+        # Handle errors and mark match as failed
+        try:
+            match = Match.objects.get(id=match_id)
             match.status = 'error'
             match.result = 'error'
-            match.completed_at = timezone.now()
-            match.save_log_file(log_buffer.getvalue())
+            match.log_file = f"Error: {str(e)}"
             match.save()
+        except:
+            pass
+        return f"Error running match {match_id}: {str(e)}"
 
 @shared_task
 def check_tournament_completion(tournament_id):
     """
-    Check if all matches in a tournament are completed
+    Check if all matches in a tournament are completed and recalculate scores
     
     Args:
         tournament_id: UUID of the Tournament object
     """
     try:
-        tournament = Tournament.objects.get(id=tournament_id)
+        from django.db import transaction
+        from .models import Tournament, Match, TournamentParticipant
         
-        # Count total and completed matches
-        total_matches = Match.objects.filter(tournament=tournament).count()
-        completed_matches = Match.objects.filter(
-            tournament=tournament,
-            status__in=['completed', 'error']
-        ).count()
-        
-        # If all matches are completed, mark the tournament as completed
-        if total_matches > 0 and total_matches == completed_matches:
-            tournament.complete_tournament()
+        with transaction.atomic():
+            tournament = Tournament.objects.get(id=tournament_id)
             
+            # Count total and completed matches
+            total_matches = Match.objects.filter(tournament=tournament).count()
+            completed_matches = Match.objects.filter(
+                tournament=tournament,
+                status__in=['completed', 'error']
+            ).count()
+            
+            # If all matches are completed, mark the tournament as completed
+            if total_matches > 0 and total_matches == completed_matches:
+                # First recalculate all scores
+                if hasattr(tournament, 'recalculate_scores'):
+                    tournament.recalculate_scores()
+                elif hasattr(tournament, 'complete_tournament'):
+                    tournament.complete_tournament()
+                else:
+                    # Fallback if neither method exists
+                    tournament.status = 'completed'
+                    tournament.completed_at = timezone.now()
+                    tournament.save()
+                
+                logger.info(f"Tournament {tournament_id} completed with all scores recalculated")
+                
     except Exception as e:
         logger.error(f"Error checking tournament completion: {str(e)}")
+        return f"Error checking tournament completion: {str(e)}"
+    
+    return f"Tournament completion check executed for {tournament_id}"

@@ -25,6 +25,9 @@
             {% if tournament.status == 'scheduled' %}
                 <button class="btn btn-primary" onclick="startTournament()">Start Tournament</button>
             {% endif %}
+            {% if tournament.status == 'in_progress' or tournament.status == 'completed' %}
+                <button class="btn btn-primary" onclick="recalculateScores()">Recalculate Scores</button>
+            {% endif %}
             <!-- Add a delete button that's always visible -->
             <button class="btn btn-danger" onclick="openDeleteTournamentModal()">Delete Tournament</button>
         </div>
@@ -341,15 +344,22 @@
                 }
                 
                 console.log(`Found ${data.participants.length} participants`);
+                
+                // Sort participants by score in descending order
+                const sortedParticipants = [...data.participants].sort((a, b) => b.score - a.score);
+                
                 let html = '';
                 
-                data.participants.forEach(participant => {
+                sortedParticipants.forEach((participant, index) => {
+                    // Add rank based on sort order
+                    const rank = index + 1;
+                    
                     html += `
                         <div class="participant-card">
                             <div class="participant-info">
-                                <h5>${participant.bot_name}</h5>
+                                <h5>${rank}. ${participant.bot_name}</h5>
                                 <p>Owner: ${participant.owner_email}</p>
-                                <p>Score: ${participant.score}</p>
+                                <p>Score: <strong>${participant.score}</strong></p>
                             </div>
                             {% if tournament.status == 'scheduled' %}
                             <div class="participant-actions">
@@ -823,6 +833,34 @@
         .catch(error => {
             console.error('Error starting tournament:', error);
             alert('Error starting tournament. Please try again.');
+        });
+    }
+    
+    function recalculateScores() {
+        if (!confirm('Are you sure you want to recalculate all tournament scores?')) {
+            return;
+        }
+        
+        fetch(`/users/api/tournaments/{{ tournament.id }}/recalculate_scores/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                // Reload the page to show updated scores
+                window.location.reload();
+            } else if (data.error) {
+                alert(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error recalculating scores:', error);
+            alert('Error recalculating tournament scores. Please try again.');
         });
     }
     

@@ -453,8 +453,16 @@
                 }
             });
 
-        // Load students by default
-        loadStudents();
+        // Activate tab based on URL hash
+        activateTabFromHash();
+        
+        // Also handle hash changes (if someone uses browser back/forward)
+        window.addEventListener('hashchange', activateTabFromHash);
+        
+        // If no hash is present, load students by default (existing behavior)
+        if (!window.location.hash) {
+            loadStudents();
+        }
         
         // Handle tournament creation form
         document.getElementById('createTournamentForm').addEventListener('submit', function(e) {
@@ -571,6 +579,40 @@
             document.getElementById('deleteTournamentMessage').innerHTML = 
                 '<div style="color:red">Error deleting tournament. Please try again.</div>';
         });
+    }
+    
+    // Function to activate tab based on URL hash
+    function activateTabFromHash() {
+        const hash = window.location.hash;
+        if (hash) {
+            const tabName = hash.substring(1); // Remove the # character
+            const tabElement = document.getElementById(tabName);
+            
+            if (tabElement) {
+                // Find the button for this tab
+                const tabButtons = document.getElementsByClassName("tab-button");
+                for (let i = 0; i < tabButtons.length; i++) {
+                    tabButtons[i].classList.remove("active");
+                    if (tabButtons[i].getAttribute("onclick").includes(tabName)) {
+                        tabButtons[i].classList.add("active");
+                    }
+                }
+                
+                // Hide all tab contents and show the selected one
+                const tabContents = document.getElementsByClassName("tab-content");
+                for (let i = 0; i < tabContents.length; i++) {
+                    tabContents[i].classList.remove("active");
+                }
+                tabElement.classList.add("active");
+                
+                // Load the data for the selected tab
+                if (tabName === "students-tab") {
+                    loadStudents();
+                } else if (tabName === "tournaments-tab") {
+                    loadTournaments();
+                }
+            }
+        }
     }
 </script>
 {% endblock %}
