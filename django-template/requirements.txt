@@ -10,3 +10,4 @@ python-chess==1.2.0
 celery
 redis
 dotenv
+django-cors-headers

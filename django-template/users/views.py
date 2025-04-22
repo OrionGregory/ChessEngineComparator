@@ -1,6 +1,11 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.contrib.auth import logout
 from django.views.decorators.http import require_http_methods
+from django.utils.decorators import method_decorator
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.http import JsonResponse, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -18,6 +23,30 @@ from django.db.models import Q
 from django.db import models
 from .services import generate_round_robin_matches, generate_round_robin_matches_with_rounds  # Add this import
 from .tasks import run_chess_match
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@ensure_csrf_cookie
+def user_info(request):
+    if request.user.is_authenticated:
+        return JsonResponse({
+            "isAuthenticated": True,
+            "email": request.user.email,
+            "role": getattr(request.user, "role", None),
+            "id": request.user.id,
+            "name": getattr(request.user, "name", ""),
+            "avatar": getattr(request.user, "avatar", ""),
+        })
+    else:
+        return JsonResponse({"isAuthenticated": False})
+
+def direct_google_login(request):
+    next_url = request.GET.get('next', '/')
+    return redirect(f'/accounts/google/login/?next={next_url}')
+
+def react_logout(request):
+    logout(request)
+    return redirect('http://localhost:3000/login')
 
 def login(request):
     """Render the login page with direct Google OAuth option"""
@@ -758,7 +787,7 @@ class MatchViewSet(viewsets.ModelViewSet):
 
 class LeaderboardView(APIView):
     """API endpoint for retrieving leaderboard data"""
-    permission_classes = [IsTeacher]
+#       permission_classes = [IsTeacher]
     
     def get(self, request):
         """Get leaderboard data for active bots"""

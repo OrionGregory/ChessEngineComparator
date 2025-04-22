@@ -20,12 +20,17 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
+from users.views import user_info, direct_google_login, react_logout
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('users/', include('users.urls')),
     path('accounts/', include('allauth.urls')),
-    path('', include('hello.urls')),
+    path('', RedirectView.as_view(url='http://localhost:3000/', permanent=False)),
+    path('api/user-info/', user_info, name='user_info'),
+    path('auth/direct-google-login/', direct_google_login, name='direct_google_login'),
+    path('react-logout/', react_logout, name='react_logout'),
+    
 ]
 urlpatterns += staticfiles_urlpatterns()
 
