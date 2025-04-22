@@ -2,13 +2,13 @@
 layout: default
 ---
 
-# ♟️ Chess Engine Comparator
+# Chess Engine Comparator
 
 Welcome to the Chess Engine Comparator — a platform where students and developers can compete by building bots that battle it out in tournament-style chess matches.
 
 ---
 
-## 🎯 Project Goals
+## Project Goals
 
 - Build a competitive environment for custom chess bots
 - Encourage beginner AI and algorithm design
@@ -16,7 +16,7 @@ Welcome to the Chess Engine Comparator — a platform where students and develop
 
 ---
 
-## 👤 Team Bios
+## Team Bios
 
 - [Orion Gregory](./bios.md)
 - [Tejas Bhadoria](./tejas.md)
@@ -24,7 +24,7 @@ Welcome to the Chess Engine Comparator — a platform where students and develop
 
 ---
 
-## 📦 Deliverables
+## Deliverables
 
 - [🎞️ Project Presentation](./initialPresentation.pptx)
 - [🔗 Project Repository](https://github.com/OrionGregory/ChessEngineComparator)
@@ -32,9 +32,9 @@ Welcome to the Chess Engine Comparator — a platform where students and develop
 
 ---
 
-## 🚀 Sprint Deliverables
+## Sprint Deliverables
 
-### 📌 Sprint 1
+### Sprint 1
 
 | File Name                             | Download Link                                                                 |
 |--------------------------------------|-------------------------------------------------------------------------------|
@@ -44,7 +44,7 @@ Welcome to the Chess Engine Comparator — a platform where students and develop
 | Sprint Retrospective.pdf             | [Download](Sprint1Dev/Sprint%20Retrospective%20(1).pdf)                       |
 | Sprint1GoalBacklog.pdf               | [Download](Sprint1Dev/Sprint1GoalBacklog%20(1).docx%20(1).pdf)                |
 
-### 📌 Sprint 2
+### Sprint 2
 
 | File Name                            | Download Link                                                                 |
 |-------------------------------------|-------------------------------------------------------------------------------|
@@ -54,7 +54,7 @@ Welcome to the Chess Engine Comparator — a platform where students and develop
 | Sprint2Retrospective.pdf            | [Download](Sprint2Dev/Sprint2Retrospective.pdf)                              |
 | SprintDailyJournal.pdf              | [Download](Sprint2Dev/SprintDailyJournal.pdf)                                |
 
-### 📌 Sprint 3
+### Sprint 3
 
 | File Name                            | Download Link                                                                 |
 |-------------------------------------|-------------------------------------------------------------------------------|
@@ -66,20 +66,20 @@ Welcome to the Chess Engine Comparator — a platform where students and develop
 
 ---
 
-## ⚙️ Installation
+## Installation
 
-👉 Follow the [Installation Guide](./installation.md) for full setup instructions.
-
----
-
-## 📘 Usage Guides
-
-- 👩‍🏫 [Teacher Guide](./docs/TeacherUsage.md)
-- 👨‍🎓 [Student Guide](./docs/StudentsUsage.md)
+Follow the [Installation Guide](./installation.md) for full setup instructions.
 
 ---
 
-## 🧠 Technical Docs
+## Usage Guides
 
-- 🔒 [Restrict Signups by Email Domain](./docs/EmailDomainEnforcement.md)
-- 🤖 [Using Stockfish Bots](./docs/EvilFish(StockfishBots).md)
+- [Teacher Guide](./docs/TeacherUsage.md)
+- [Student Guide](./docs/StudentsUsage.md)
+
+---
+
+## Technical Docs
+
+- [Restrict Signups by Email Domain](./docs/EmailDomainEnforcement.md)
+- [Using Stockfish Bots](./docs/EvilFish(StockfishBots).md)
