@@ -1,0 +1,44 @@
+# .readthedocs.yaml
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+# Set the OS, Python version and other tools
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.10"  # Django apps commonly use Python 3.8-3.10
+  apt_packages:
+    - postgresql-client
+    - redis-tools
+  commands:
+    - pip install sphinx sphinx_rtd_theme myst-parser
+    - mkdir -p $READTHEDOCS_OUTPUT/html
+    - sphinx-build -b html docs/ $READTHEDOCS_OUTPUT/html
+
+# Optionally build your docs in additional formats
+formats:
+  - pdf
+  - epub
+
+# Python configuration
+python:
+  install:
+    - requirements: ChessApp/requirements.txt
+    - method: pip
+      path: .
+
+# Additional configurations
+search:
+  ranking:
+    api/*: 5
+    guides/*: 4
+    installation.md: 3
+    index.md: 10
+
+# Configure submodules if you're using them
+submodules:
+  include: all
+  recursive: true
