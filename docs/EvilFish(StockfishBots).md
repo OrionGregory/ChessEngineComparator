@@ -3,6 +3,12 @@ This is a working example of a chess bot that uses Stockfish to select the best 
 
 If you're looking for a strong baseline for testing or comparison, using Stockfish is a great choice—it will likely outperform any bot built purely with Python logic.
 
+
+## NOTICE
+If you are hosting this say, on a cloud provider, it may not have AVX2 instruction support. In which case Stockfish WILL NOT WORK!
+
+You can run this on any server that does have AVX2 support and Stockfish will work.
+
 # Customizing Bot Difficulty
 
 ## To change the bot's difficulty, modify the skill_level parameter in the constructor:

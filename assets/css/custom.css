@@ -1,0 +1,30 @@
+body {
+    background: #f5f7fa;
+    font-family: 'Segoe UI', sans-serif;
+    color: #333;
+    line-height: 1.6;
+  }
+  
+  h1, h2 {
+    color: #2b6cb0;
+  }
+  
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  
+  table th, table td {
+    border: 1px solid #ccc;
+    padding: 0.75rem;
+  }
+  
+  a {
+    color: #3182ce;
+    text-decoration: none;
+  }
+  
+  a:hover {
+    text-decoration: underline;
+  }
+  
