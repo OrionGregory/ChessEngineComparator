@@ -87,3 +87,27 @@ Follow the [Installation Guide](./installation.md) for full setup instructions.
 ## Development Docs
 
 - [DeveloperDoc](./docs/DevDocs.md)
+
+## Frequently Asked Questions
+
+### Why is my Django server not starting?
+Ensure you’ve activated your virtual environment and installed all dependencies using:
+```bash
+pip install -r requirements.txt
+```
+Also, verify that the manage.py file is in the correct directory and run the server with:
+```bash
+python ChessApp/manage.py runserver
+```
+
+### How can I debug issues with Redis or Celery?
+Check if Redis is running and accessible on the default port (6379). Ensure the CELERY_BROKER_URL and CELERY_RESULT_BACKEND in your settings are correctly configured to point to your Redis instance. Also, confirm that the Celery worker is running in a separate terminal.
+
+- For Redis: Run `redis-cli ping` to check if Redis is running. If it’s not, start it with `redis-server.`
+
+- For Celery: Check the Celery worker logs for errors by running the worker with `--loglevel=debug`.
+
+### How do I resolve "Database connection failed" or "Invalid Password" errors?
+Ensure that PostgreSQL is running and the credentials in the `.env` file match your database setup. Verify that the database user has the correct permissions and that the database exists.
+
+You can edit the `.env` file in the project root directory to add or update environment variables. Restart the Django server and Celery worker after making changes.
