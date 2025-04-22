@@ -33,6 +33,7 @@ Once logged in, you will be directed to your **Teacher Dashboard**, which includ
         - A win is 1 point
         - A draw is 0.5 points for both participants
         - A loss is 0 points
+    
 ---
 
 ## Managing Students
