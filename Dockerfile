@@ -25,19 +25,21 @@ COPY django-template/ /app/django-template/
 WORKDIR /app/django-template
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Copy and build React frontend
-COPY django-template/frontend/ /app/django-template/frontend/
+# Copy and build React frontend with API URL
 WORKDIR /app/django-template/frontend
+ARG REACT_APP_API_BASE_URL
+ENV REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL}
 RUN npm install && npm run build
 
-# Move back to Django directory
+# Move back to Django directory and collect static files
 WORKDIR /app/django-template
+RUN python manage.py collectstatic --noinput
 
 # Install supervisor for process management
 RUN pip install supervisor
 COPY supervisord.conf /etc/supervisord.conf
 
-# Expose ports for Django and React
-EXPOSE 8000 3000
+# Expose only Django port
+EXPOSE 8000
 
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]

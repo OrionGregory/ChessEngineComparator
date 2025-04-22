@@ -21,20 +21,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL}
     command: >
       sh -c "python manage.py migrate &&
-             python manage.py collectstatic --noinput &&
              supervisord -c /etc/supervisord.conf"
     volumes:
       - ./django-template:/app/django-template
     ports:
       - "8000:8000" # Django backend
-      - "3000:3000" # React frontend
     depends_on:
       - db
       - redis
     environment:
-      - REACT_APP_API_BASE_URL=http://localhost:8000
+      - REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL}
     env_file:
       - .env
 
