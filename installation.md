@@ -17,6 +17,17 @@ cd ChessEngineComparator
 ## 2. Configure environment variables
 
 Copy `.env.example` to `.env` and edit as needed (database password, etc.).
+```
+DJANGO_SECRET_KEY="django-secure-key-for-your-app"
+DB_PASSWORD="password"
+GOOGLE_CLIENT_ID="client_id"
+GOOGLE_CLIENT_SECRET="secret"
+REDIRECT_URI="https://localhost:5000/auth/callback"
+DB_HOST="ip"
+DB_PORT="port#"
+DB_NAME="DBname"
+DB_USER="DBuser"
+```
 
 ## 3. Build and start all services
 
