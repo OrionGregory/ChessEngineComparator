@@ -1,7 +1,7 @@
 # Orion Gregory
 
 ## About Me
-Hello! My name is **Orion Gregory**, and I am from **Glen Carbon, Illinois**. I am currently a **senior studying Computer Science** at **The University of Alabama**, with a concentration in **Cybersecurity**. My academic journey has been fueled by a passion for technology, security, and innovation.
+Hello! My name is Orion Gregory, and I am from Glen Carbon, Illinois. I am currently a senior studying Computer Science at **The University of Alabama**, with a concentration in **Cybersecurity**. My academic journey has been fueled by a passion for technology, security, and innovation.
 
 ## Education
 - **University:** The University of Alabama  
@@ -30,12 +30,14 @@ I have also held a role as **Project Director** for the **Project Crimson Cybers
 - **Movie & Actor Management Website** – Developed an ASP.NET web application integrating AI-generated reviews and sentiment analysis using Azure OpenAI.
 - **Project Crimson CTF** – Built and managed a cybersecurity CTF competition platform using **CTFd** on a **Hetzner VPS**.
 - **Cybersecurity Course Development** – Designed and implemented a full cybersecurity course at **The University of Alabama**, including **lesson plans, labs, and assignments**.
+- **SMILES (Secure Medical Information Localized Exchange System)** – Designed a Information Exchange system that updated patient records in HIPPA standards, all offline and airgapped from the internet.
 
 ## Contact
 If you'd like to connect, feel free to reach out via:
 - **Email:** [oagregory@crimson.ua.edu](mailto:oagregory@crimson.ua.edu)
-- **LinkedIn:** [linkedin.com/in/oriongregory](https://www.linkedin.com/mynetwork/grow/?skipRedirect=true)
+- **LinkedIn:** [linkedin.com/in/oriongregory](https://www.linkedin.com/in/orion-gregory-72b855279/)
 - **GitHub:** [github.com/oriongregory](https://github.com/oriongregory)
 
-Thanks for stopping by!
+## Resume
+If you wish to view my resume, it can be found [HERE](./docs/OrionResume.pdf)
 

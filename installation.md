@@ -111,5 +111,9 @@ Open your `.env` file and add the following (adjust for your provider):
 
 If you want to run services outside Docker (for development or debugging), see [docs/manual.md](docs/manual.md).
 
+# External Resources
+A Google Cloud SQL PostgreSQL database was used, this was payed, and we used the lowest tier, which offered 1 CPU and 612MB of RAM. 
 
+# FAQ (Frequently Asked Questions)
+Issues
 ---
