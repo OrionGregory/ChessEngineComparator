@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
 import StudentDetailPage from './pages/StudentDetailPage';
+import TournamentDetailsPage from './pages/TournamentDetailsPage';
 import StudentDashboardPage from './pages/StudentDashboardPage'; // Add this import
 import Header from './components/Header';
 import axios from 'axios';
@@ -182,6 +183,17 @@ function App() {
               <Redirect to="/profile" />
             )}
           </Route>
+          <Route path="/tournament/:id">
+          {isAuthenticated ? (
+            userData?.role === 'teacher' ? (
+              <TournamentDetailsPage userData={userData} />
+            ) : (
+              <Redirect to="/" />
+            )
+          ) : (
+            <Redirect to="/login" />
+          )}
+        </Route>
           <Route path="*">
             <Redirect to={isAuthenticated ? "/" : "/login"} />
           </Route>

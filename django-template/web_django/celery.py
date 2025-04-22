@@ -1,19 +1,3 @@
-<<<<<<< HEAD
-import os
-from celery import Celery
-
-# Set the default Django settings module
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web_django.settings")
-
-# Create the Celery app
-app = Celery("chess_engine_comparator")
-
-# Load config from Django settings
-app.config_from_object("django.conf:settings", namespace="CELERY")
-
-# Auto-discover tasks in all installed apps
-app.autodiscover_tasks()
-=======
 import os
 from celery import Celery
 from celery.signals import worker_ready
@@ -59,4 +43,3 @@ def setup_directories(**kwargs):
             str(day).zfill(2)
         )
         ensure_directory_exists(date_path)
->>>>>>> origin/TheDjangoMassRefactor

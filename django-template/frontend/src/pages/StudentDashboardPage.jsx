@@ -17,7 +17,6 @@ import ArchiveIcon from '@mui/icons-material/Archive';
 import EditIcon from '@mui/icons-material/Edit';
 import { useHistory } from 'react-router-dom';
 import apiService from '../services/apiService';
-import axios from 'axios';
 
 function a11yProps(index) {
   return {
@@ -113,22 +112,22 @@ const StudentDashboardPage = ({ userData }) => {
       setError('Please select a file to upload');
       return;
     }
-
+  
     if (!formData.name) {
       setError('Bot name is required');
       return;
     }
-
+  
     try {
       const data = new FormData();
-      data.append('file', botFile);
+      data.append('file_path', botFile); // IMPORTANT: Change 'file' to 'file_path' to match the backend
       data.append('name', formData.name);
       data.append('description', formData.description);
       data.append('visibility', formData.visibility);
       data.append('status', formData.status);
-
+  
       const response = await apiService.createBot(data);
-
+  
       setMyBots([...myBots, response.data]);
       setSuccess('Bot successfully uploaded!');
       
@@ -620,9 +619,10 @@ const StudentDashboardPage = ({ userData }) => {
           </FormControl>
           <Box sx={{ mt: 2 }}>
             <input
-              accept=".py,.zip,.jar"
+              accept=".py"  // Restrict to only Python files
               id="bot-file-upload"
               type="file"
+              name="file_path"  // Ensure this matches backend
               onChange={handleFileChange}
               style={{ display: 'none' }}
             />
@@ -633,7 +633,7 @@ const StudentDashboardPage = ({ userData }) => {
                 startIcon={<CloudUploadIcon />}
                 sx={{ mt: 1 }}
               >
-                {botFile ? botFile.name : 'Select Bot File'}
+                {botFile ? botFile.name : 'Select Bot File (.py)'}
               </Button>
             </label>
             {botFile && (
@@ -641,6 +641,9 @@ const StudentDashboardPage = ({ userData }) => {
                 Selected file: {botFile.name}
               </Typography>
             )}
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+              Please upload a Python (.py) file with your chess bot implementation. Maximum size: 5MB.
+            </Typography>
           </Box>
         </DialogContent>
         <DialogActions>

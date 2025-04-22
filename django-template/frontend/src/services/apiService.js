@@ -42,16 +42,35 @@ export default {
   getTournament: (id) => api.get(`/users/api/tournaments/${id}/`),
   createTournament: (data) => api.post('/users/api/tournaments/', data),
   deleteTournament: (id) => api.post(`/users/api/tournaments/${id}/delete_tournament/`),
-  addParticipant: (id, botId) => api.post(`/users/api/tournaments/${id}/add_participant/`, { bot_id: botId }),
-  removeParticipant: (id, botId) => api.post(`/users/api/tournaments/${id}/remove_participant/`, { bot_id: botId }),
-  startTournament: (id, options) => api.post(`/users/api/tournaments/${id}/start_tournament/`, options),
+  addParticipant: (tournamentId, botId) => api.post(`/users/api/tournaments/${tournamentId}/add_participant/`, { bot_id: botId }),
+  removeParticipant: (tournamentId, botId) => api.post(`/users/api/tournaments/${tournamentId}/remove_participant/`, { bot_id: botId }),
+  startTournament: (id) => api.post(`/users/api/tournaments/${id}/start_tournament/`),
   cancelTournament: (id) => api.post(`/users/api/tournaments/${id}/cancel/`),
 
   // Bot endpoints
   getBots: () => api.get('/users/api/bots/'),
   getBot: (id) => api.get(`/users/api/bots/${id}/`),
-  createBot: (data) => api.post('/users/api/bots/', data),
-  updateBot: (id, data) => api.put(`/users/api/bots/${id}/`, data),
+  createBot: (data) => axios.post('http://localhost:8000/users/api/bots/', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    withCredentials: true
+  }),
+  updateBot: (id, data) => {
+    // If data is FormData (contains files), use multipart/form-data
+    if (data instanceof FormData) {
+      return axios.put(`http://localhost:8000/users/api/bots/${id}/`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        withCredentials: true
+      });
+    }
+    // Otherwise use regular JSON
+    return api.put(`/users/api/bots/${id}/`, data);
+  },
   deleteBot: (id) => api.delete(`/users/api/bots/${id}/`),
   
   // Leaderboard endpoint
@@ -63,8 +82,7 @@ export default {
   // User info - make sure to use the correct endpoint
   getUserInfo: () => api.get('/api/user-info/'),
 
-
   activateBot: (botId) => api.post(`/users/api/bots/${botId}/activate/`),
   archiveBot: (botId) => api.post(`/users/api/bots/${botId}/archive/`),
-
+  recalculateScores: (id) => api.post(`/users/api/tournaments/${id}/recalculate_scores/`),
 };

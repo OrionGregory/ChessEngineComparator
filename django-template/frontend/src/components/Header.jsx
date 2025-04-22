@@ -16,7 +16,6 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { useHistory } from 'react-router-dom';
 
-
 const Header = ({ userData }) => {
   const history = useHistory();
   const [anchorEl, setAnchorEl] = React.useState(null);
@@ -28,35 +27,38 @@ const Header = ({ userData }) => {
   return (
     <AppBar
       position="static"
-      elevation={3}
+      elevation={2}
       sx={{
-        background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+        background: `linear-gradient(90deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
         mb: 4,
+        boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
       }}
     >
-      <Toolbar>
+      <Toolbar sx={{ minHeight: 70 }}>
         <Typography
-          variant="h5"
+          variant="h6"
           sx={{
             flexGrow: 1,
-            fontWeight: 700,
-            letterSpacing: 1,
-            color: '#fff',
-            textShadow: '1px 1px 4px rgba(0,0,0,0.15)',
+            fontWeight: 600,
+            color: '#f4f6f8',
+            letterSpacing: 0.5,
           }}
         >
-          ♟️ Chess Bot Tournament
+          Chess Bot Tournament
         </Typography>
+
         {userData && (
           <Box>
             <Tooltip title={userData.email}>
               <IconButton onClick={handleMenu} sx={{ p: 0 }}>
                 <Avatar
                   sx={{
-                    bgcolor: theme.palette.secondary.main,
-                    width: 40,
-                    height: 40,
-                    fontWeight: 700,
+                    bgcolor: theme.palette.grey[200],
+                    color: theme.palette.primary.main,
+                    fontWeight: 600,
+                    width: 36,
+                    height: 36,
+                    fontSize: 16,
                   }}
                   src={userData.avatar || undefined}
                 >
@@ -73,23 +75,27 @@ const Header = ({ userData }) => {
               open={Boolean(anchorEl)}
               onClose={handleClose}
               PaperProps={{
-                sx: { minWidth: 180, mt: 1 },
+                sx: {
+                  mt: 1.5,
+                  borderRadius: 2,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                },
               }}
             >
               <MenuItem
                 onClick={() => {
-                    handleClose();
-                    history.push('/profile');
+                  handleClose();
+                  history.push('/profile');
                 }}
-            >
-                <AccountCircleIcon sx={{ mr: 1 }} /> Profile
+              >
+                <AccountCircleIcon sx={{ mr: 1, fontSize: 20 }} /> Profile
               </MenuItem>
               <MenuItem
                 component="a"
                 href="http://localhost:8000/react-logout/"
                 onClick={handleClose}
               >
-                <LogoutIcon sx={{ mr: 1 }} /> Logout
+                <LogoutIcon sx={{ mr: 1, fontSize: 20 }} /> Logout
               </MenuItem>
               {userData.role === 'teacher' && (
                 <MenuItem
@@ -97,7 +103,7 @@ const Header = ({ userData }) => {
                   href="http://localhost:8000/admin/"
                   onClick={handleClose}
                 >
-                  <AdminPanelSettingsIcon sx={{ mr: 1 }} /> Admin
+                  <AdminPanelSettingsIcon sx={{ mr: 1, fontSize: 20 }} /> Admin
                 </MenuItem>
               )}
             </Menu>
