@@ -10,38 +10,29 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.10"  # Django apps commonly use Python 3.8-3.10
-
-# Build documentation in the docs/ directory with Sphinx
-sphinx:
-  configuration: docs/conf.py
+  apt_packages:
+    - postgresql-client
+    - redis-tools
+  commands:
+    - pip install sphinx sphinx_rtd_theme myst-parser
+    - mkdir -p $READTHEDOCS_OUTPUT/html
+    - sphinx-build -b html docs/ $READTHEDOCS_OUTPUT/html
 
 # Optionally build your docs in additional formats
 formats:
   - pdf
   - epub
 
-# Specify requirements to build the documentation
+# Python configuration
 python:
   install:
-    - requirements: requirements.txt
-    - method: pip
-      path: .
-
-
-# Don't build all formats
-formats: all
-
-# Explicitly set the version of Python and requirements
-python:
-  version: 3.10
-  install:
+    - requirements: ChessApp/requirements.txt
     - method: pip
       path: .
 
 # Additional configurations
 search:
   ranking:
-    # Prioritize certain pages in search results
     api/*: 5
     guides/*: 4
     installation.md: 3
@@ -51,13 +42,3 @@ search:
 submodules:
   include: all
   recursive: true
-
-# Build environment for Django documentation
-build:
-  apt_packages:
-    - postgresql-client
-    - redis-tools
-  commands:
-    - pip install sphinx sphinx_rtd_theme myst-parser
-    - mkdir -p $READTHEDOCS_OUTPUT/html
-    - sphinx-build -b html docs/ $READTHEDOCS_OUTPUT/html
