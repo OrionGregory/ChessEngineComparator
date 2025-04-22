@@ -49,7 +49,7 @@ source venv/bin/activate
 2. Install Python Requirements
 ```bash
 pip install --upgrade pip
-pip install -r ChessApp/requirements.txt
+pip install -r requirements.txt
 ```
 
 ## Step 4: Set Up the Database
