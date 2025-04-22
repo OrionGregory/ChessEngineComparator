@@ -27,6 +27,7 @@ services:
              supervisord -c /etc/supervisord.conf"
     volumes:
       - ./ChessApp:/app/ChessApp
+      - ./stockfish:/app/stockfish
     ports:
       - "8000:8000"
     depends_on:
