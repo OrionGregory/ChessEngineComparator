@@ -15,10 +15,10 @@ build:
     - redis-tools
   commands:
     - pip install sphinx sphinx_rtd_theme myst-parser
-    - mkdir -p docs
-    - if [ ! -f docs/conf.py ]; then sphinx-quickstart -q -p "Chess Engine Comparator" -a "Chess App Team" -v "1.0" --ext-autodoc --ext-viewcode --ext-todo docs/; fi
     - mkdir -p $READTHEDOCS_OUTPUT/html
-    - sphinx-build -b html docs/ $READTHEDOCS_OUTPUT/html
+    - cp -r docs/* $READTHEDOCS_OUTPUT/html/
+    - cp *.md $READTHEDOCS_OUTPUT/html/
+    - sphinx-build -b html $READTHEDOCS_OUTPUT/html $READTHEDOCS_OUTPUT/html/_build
 
 # Optionally build your docs in additional formats
 formats:
@@ -28,7 +28,6 @@ formats:
 # Python configuration
 python:
   install:
-    - requirements: requirements.txt
     - method: pip
       path: .
       extra_requirements:

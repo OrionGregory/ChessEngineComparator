@@ -1,5 +1,9 @@
 # Configuration file for the Sphinx documentation builder.
 
+import os
+import sys
+sys.path.insert(0, os.path.abspath('..'))
+
 # -- Project information -----------------------------------------------------
 project = 'Chess Engine Comparator'
 copyright = '2025, Chess App Team'
@@ -20,6 +24,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # -- Options for HTML output -------------------------------------------------
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+html_extra_path = ['..']
 
 # -- Extension configuration -------------------------------------------------
 source_suffix = ['.rst', '.md']
+master_doc = 'index'
