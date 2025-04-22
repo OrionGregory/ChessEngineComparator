@@ -121,6 +121,7 @@ DATABASES = {
         "PASSWORD": os.environ.get("DB_PASSWORD", ""),
         "HOST": os.environ.get("DB_HOST", "db"),
         "PORT": os.environ.get("DB_PORT", "5432"),
+        'CONN_MAX_AGE': 600,
     }
 }
 
@@ -248,7 +249,8 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Set file upload permissions
-FILE_UPLOAD_PERMISSIONS = 0o644
+FILE_UPLOAD_PERMISSIONS = 0o666  # rw-rw-rw-
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o777  # rwxrwxrwx
 
 # Celery Settings
 CELERY_BROKER_URL = "redis://localhost:6379/0"

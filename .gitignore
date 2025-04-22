@@ -8,6 +8,7 @@ env.bak/
 venv.bak/
 *.txt
 *.pgn
+*.rdb
 # Byte-compiled / optimized / DLL files
 __pycache__/
 
@@ -16,3 +17,4 @@ __pycache__/
 local_settings.py
 db.sqlite3
 
+*:Zone.Identifier
