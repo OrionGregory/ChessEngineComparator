@@ -174,7 +174,7 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # Can be changed to 'mandatory'
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'  # Change to 'https' in production
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'  # Change to 'https' in production
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
 

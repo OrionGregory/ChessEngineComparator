@@ -40,3 +40,13 @@ Create an environment where students and other users can compete in tournament s
 ### Installation
 
 See the [Installation Guide](./installation.md) for detailed setup instructions.
+
+### Usage Guides
+
+See the [Teacher Usage Guide](./docs/TeacherUsage.md) for details on how to use the app as a teacher
+See the [Student Usage Guide](./docs/StudentsUsage.md) for details on how students would use the app
+
+### Technical Information
+
+If you wish to restrict those who can sign up to the platform by email domain see [Email Domain Enforcement](./docs/EmailDomainEnforcement.md)
+If you wish to use Stockfish Bots within your tournaments see [Stockfish Bots](./docs/EvilFish(StockfishBots).md)
