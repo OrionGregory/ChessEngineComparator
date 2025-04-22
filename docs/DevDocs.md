@@ -1,6 +1,8 @@
 # Developer Documentation for Chess Engine Comparator
 This document provides essential information for developers working on the Chess Engine Comparator project, a Django-based platform that enables students and teachers to create and compete with chess bots.
 
+See our [GitHub Issues](https://github.com/OrionGregory/ChessEngineComparator/issues) for a starting point of what we have left.
+
 ## Project Structure
 The Chess Engine Comparator is built with Django and follows a standard Django project structure:
 
