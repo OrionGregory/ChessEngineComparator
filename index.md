@@ -116,6 +116,9 @@ Ensure that PostgreSQL is running and the credentials in the `.env` file match y
 You can edit the `.env` file in the project root directory to add or update environment variables. Restart the Django server and Celery worker after making changes.
 
 ## Demo Video
-Download the video from our Sprint3 Deliverables for audio.  
-
-<video controls src="Sprint3Dev/ChessBotTournament.mp4" title="Demo"></video>
+<video
+  style="width:100%; max-width:800px; height:auto;"
+  controls
+  src="Sprint3Dev/ChessBotTournament.mp4"
+  title="Demo">
+</video>
