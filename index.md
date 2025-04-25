@@ -117,7 +117,7 @@ You can edit the `.env` file in the project root directory to add or update envi
 
 ## Demo Video
 <video
-  style="width:100%; max-width:800px; height:auto;"
+  style="width:50%; max-width:400px; height:auto;"
   controls
   src="Sprint3Dev/ChessBotTournament.mp4"
   title="Demo">
