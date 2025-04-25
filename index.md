@@ -48,7 +48,7 @@ Welcome to the Chess Engine Comparator — a platform where students and develop
 
 | File Name                            | Download Link                                                                |
 |-------------------------------------|-------------------------------------------------------------------------------|
-| Online Chess Engine Comparator      | [Download](Sprint2Dev/OnlineChessEngineComparator(Sprint2).pdf)               |
+| OnlineChessEngineComparatorSlides   | [Download](Sprint2Dev/OnlineChessEngineComparator(Sprint2).pdf)               |
 | Sprint Planning Document (Sprint 2) | [Download](Sprint2Dev/SprintPlanningDocument(Sprint2).pdf)                    |
 | Sprint2Goals.pdf                    | [Download](Sprint2Dev/Sprint2Goals.pdf)                                       |
 | Sprint2Retrospective.pdf            | [Download](Sprint2Dev/Sprint2Retrospective.pdf)                               |
@@ -58,11 +58,14 @@ Welcome to the Chess Engine Comparator — a platform where students and develop
 
 | File Name                            | Download Link                                                                |
 |-------------------------------------|-------------------------------------------------------------------------------|
-| Online Chess Engine Comparator      | [Download](Sprint3Dev/OnlineChessEngineComparator(Sprint3).pdf)               |
+| OnlineChessEngineComparatorSlides   | [Download](Sprint3Dev/OnlineChessEngineComparator(Sprint3).pdf)               |
 | Sprint Planning Document (Sprint 3) | [Download](Sprint3Dev/SprintPlanningDocument(Sprint3).pdf)                    |
-| Sprint3Goals.pdf                    | [Download](Sprint3Dev/Sprint3Goals.pdf)                                       |
-| Sprint3Retrospective.pdf            | [Download](Sprint3Dev/Sprint3Retrospective.pdf)                               |
+| Sprint3Backlog.pdf                  | [Download](Sprint3Dev/Sprint3Backlog.pdf)                                     |
+| ProjectGoals.pdf                    | [Download](Sprint3Dev/ProjectGoals.pdf)                                       |
 | SprintDailyJournal.pdf              | [Download](Sprint3Dev/SprintDailyJournal.pdf)                                 |
+| ContributionList.pdf                | [Download](Sprint3Dev/ContributionList.pdf)                                   |
+| CyberSecurity.pdf                   | [Download](Sprint3Dev/CyberSecurity.pdf)                                      |
+| ChessBotTournament.mp4              | [Download](Sprint3Dev/ChessBotTournament.mp4)                                 |
 
 ---
 
@@ -111,3 +114,8 @@ Check if Redis is running and accessible on the default port (6379). Ensure the 
 Ensure that PostgreSQL is running and the credentials in the `.env` file match your database setup. Verify that the database user has the correct permissions and that the database exists.
 
 You can edit the `.env` file in the project root directory to add or update environment variables. Restart the Django server and Celery worker after making changes.
+
+## Demo Video
+Download the video from our Sprint3 Deliverables for audio.  
+
+<video controls src="Sprint3Dev/ChessBotTournament.mp4" title="Demo"></video>
